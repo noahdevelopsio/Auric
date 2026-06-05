@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 168 40" fill="none">
+  <defs>
+    <linearGradient id="lg-btc" x1="20" y1="36" x2="4" y2="4" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF9800"/>
+      <stop offset="1" stop-color="#FFB84D"/>
+    </linearGradient>
+    <linearGradient id="lg-sol" x1="20" y1="36" x2="36" y2="4" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9945FF"/>
+      <stop offset="1" stop-color="#B370FF"/>
+    </linearGradient>
+    <linearGradient id="lg-cross" x1="11" y1="23" x2="29" y2="23" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF9800"/>
+      <stop offset="0.45" stop-color="#14F195"/>
+      <stop offset="1" stop-color="#9945FF"/>
+    </linearGradient>
+    <linearGradient id="lg-text" x1="50" y1="0" x2="168" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F9FAFB"/>
+      <stop offset="55%" stop-color="#F9FAFB"/>
+      <stop offset="100%" stop-color="#9945FF"/>
+    </linearGradient>
+  </defs>
+  <!-- Mark: stylized A -->
+  <line x1="20" y1="4" x2="4" y2="36" stroke="url(#lg-btc)" stroke-width="7" stroke-linecap="round"/>
+  <line x1="20" y1="4" x2="36" y2="36" stroke="url(#lg-sol)" stroke-width="7" stroke-linecap="round"/>
+  <line x1="11" y1="23" x2="29" y2="23" stroke="url(#lg-cross)" stroke-width="5" stroke-linecap="round"/>
+  <!-- Wordmark -->
+  <text x="50" y="28" font-family="system-ui,-apple-system,BlinkMacSystemFont,sans-serif" font-weight="700" font-size="22" letter-spacing="-0.5" fill="url(#lg-text)">Auric</text>
+</svg>

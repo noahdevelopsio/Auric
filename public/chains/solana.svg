@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 397 311" fill="none">
+  <defs>
+    <linearGradient id="sg" x1="0" y1="155.5" x2="397" y2="155.5" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9945FF"/>
+      <stop offset="1" stop-color="#14F195"/>
+    </linearGradient>
+  </defs>
+  <!-- Official Solana Foundation brand paths (viewBox 0 0 397 311) -->
+  <!-- Top bar -->
+  <path fill="url(#sg)" d="M64.6 10.5a5.9 5.9 0 0 1 4.2-1.8h317.8c2.7 0 4 3.2 2.1 5.1l-62.7 62.7a5.9 5.9 0 0 1-4.2 1.8H3.9a3 3 0 0 1-2.1-5.1z"/>
+  <!-- Middle bar (reversed orientation) -->
+  <path fill="url(#sg)" d="M321.8 124.2a5.9 5.9 0 0 0-4.2-1.8H-.2a3 3 0 0 0-2.1 5.1l62.7 62.7a5.9 5.9 0 0 0 4.2 1.8H387c2.7 0 4-3.2 2.1-5.1z"/>
+  <!-- Bottom bar -->
+  <path fill="url(#sg)" d="M64.6 237.9a5.9 5.9 0 0 1 4.2-1.8h317.8c2.7 0 4 3.2 2.1 5.1l-62.7 62.7a5.9 5.9 0 0 1-4.2 1.8H3.9a3 3 0 0 1-2.1-5.1z"/>
+</svg>

@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg-base: #0A0A0F;
+    --color-bg-surface: #111118;
+    --color-bg-elevated: #1A1A24;
+    --color-bg-overlay: #22222F;
+    --color-bg-highlight: #2A2A3A;
+    --color-text-primary: #F0F0F8;
+    --color-text-secondary: #9090A8;
+    --color-text-tertiary: #5A5A70;
+    --color-text-inverse: #0A0A0F;
+    --color-border-subtle: #1E1E2A;
+    --color-border-default: #2E2E40;
+    --color-border-strong: #44445A;
+    
+    --color-btc-50: #FFF3E0;
+    --color-btc-100: #FFE0B2;
+    --color-btc-200: #FFCC80;
+    --color-btc-300: #FFB74D;
+    --color-btc-400: #FFA726;
+    --color-btc-500: #FF9800;
+    --color-btc-600: #F57C00;
+    --color-btc-700: #E65100;
+    --color-btc-glow: rgba(255, 152, 0, 0.15);
+    
+    --color-sol-purple: #9945FF;
+    --color-sol-teal: #14F195;
+    --color-sol-50: #F3E8FF;
+    --color-sol-100: #E5D0FF;
+    --color-sol-500: #9945FF;
+    --color-sol-600: #7C2AE8;
+    --color-sol-700: #6316C4;
+    --color-sol-glow: rgba(153, 69, 255, 0.15);
+
+    --gradient-sol: linear-gradient(135deg, #9945FF 0%, #14F195 100%);
+    --gradient-sol-subtle: linear-gradient(135deg, rgba(153, 69, 255, 0.15) 0%, rgba(20, 241, 149, 0.15) 100%);
+
+    --color-success: #14F195;
+    --color-success-bg: rgba(20, 241, 149, 0.1);
+    --color-warning: #FF9800;
+    --color-warning-bg: rgba(255, 152, 0, 0.1);
+    --color-error: #FF4444;
+    --color-error-bg: rgba(255, 68, 68, 0.1);
+    --color-info: #5B8DEF;
+    --color-info-bg: rgba(91, 141, 239, 0.1);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+    --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.7);
+    --shadow-btc: 0 0 24px rgba(255, 152, 0, 0.25);
+    --shadow-sol: 0 0 24px rgba(153, 69, 255, 0.25);
+  }
+
+  body {
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <circle cx="16" cy="16" r="16" fill="#2B1A0A"/>
+  <!-- Wallet body -->
+  <rect x="7" y="12" width="18" height="11" rx="2.5" fill="#C8853E"/>
+  <!-- Coin pocket -->
+  <rect x="17.5" y="15" width="7.5" height="5" rx="1.5" fill="#2B1A0A"/>
+  <!-- Coin slot circle -->
+  <circle cx="21.25" cy="17.5" r="1.6" fill="#C8853E"/>
+  <!-- Card lines -->
+  <line x1="9" y1="16.5" x2="15.5" y2="16.5" stroke="#2B1A0A" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="9" y1="19.5" x2="15.5" y2="19.5" stroke="#2B1A0A" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

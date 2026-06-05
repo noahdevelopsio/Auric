@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <circle cx="32" cy="32" r="32" fill="#FF9800"/>
+  <!-- Bitcoin B — inner paths on orange disc -->
+  <path d="M20 14h4v36h-4z" fill="white"/>
+  <path d="M24 14h10c5.52 0 9 3.13 9 8 0 2.8-1.3 5.1-3.5 6.5C43.5 30.3 45 33 45 36.5c0 5.8-4 9.5-10.5 9.5H24V14z" fill="white"/>
+  <path d="M28 18v9h9c3.31 0 5-1.6 5-4.5S40.31 18 37 18h-9z" fill="#FF9800"/>
+  <path d="M28 31v11h9.5c3.6 0 5.5-1.8 5.5-5.5S41.1 31 37.5 31H28z" fill="#FF9800"/>
+  <!-- Tick marks -->
+  <path d="M27 11v4M33 11v4M27 49v4M33 49v4" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+</svg>
