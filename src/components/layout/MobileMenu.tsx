@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { X, MessageCircleMore } from "lucide-react";
-import { AuricLogo } from "@/components/ui/AuricLogo";
+import { AuricGemLogo } from "@/components/ui/AuricLogo";
 
 export function MobileMenu({ open, onClose, onOpenWallet }: { open: boolean; onClose: () => void; onOpenWallet: () => void }) {
   const [visible, setVisible] = useState(open);
@@ -40,7 +40,7 @@ export function MobileMenu({ open, onClose, onOpenWallet }: { open: boolean; onC
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-8 flex items-center justify-between">
-          <AuricLogo size={26} textSize="text-lg" />
+          <AuricGemLogo size={26} textSize="text-lg" />
           <button onClick={onClose} aria-label="Close menu" className="inline-flex h-11 w-11 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong">
             <X className="h-6 w-6" />
           </button>

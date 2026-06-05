@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { AuricLogo } from "@/components/ui/AuricLogo";
+import { AuricGemLogo } from "@/components/ui/AuricLogo";
 import { useWalletStore } from "@/store/walletStore";
 import { ArrowLeft, ChevronDown, Menu, Search, Wallet, Bitcoin, CircleDot } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
@@ -100,7 +100,7 @@ export function Navbar() {
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:h-16 lg:px-8">
           <div className="flex items-center gap-8">
             <Link href="/" className="group transition-transform duration-150 hover:scale-[1.02]" aria-label="Auric home">
-              <AuricLogo size={26} textSize="text-[18px]" />
+              <AuricGemLogo size={26} textSize="text-[18px]" />
             </Link>
 
             <div className="hidden items-center gap-8 lg:flex">

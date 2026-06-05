@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AuricGemLogo } from "@/components/ui/AuricLogo";
 
 export function Footer() {
   return (
@@ -8,11 +9,8 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           <div>
-            <Link href="/" className="mb-4 inline-flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-sol shadow-sol">
-                <span className="h-3.5 w-3.5 rounded-full border border-bg-base/60 bg-bg-base/15" />
-              </span>
-              <span className="font-headings text-xl font-bold tracking-[-0.02em] text-text-primary">Auric</span>
+            <Link href="/" className="mb-4 inline-flex">
+              <AuricGemLogo size={28} textSize="text-xl" />
             </Link>
             <p className="max-w-xs text-sm leading-6 text-text-secondary">
               The dual-chain NFT platform. Mint on Solana, inscribe on Bitcoin, manage both in one place.
