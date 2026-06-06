@@ -1,21 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="7" fill="#0D0D0F"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+  <rect width="40" height="40" rx="9" fill="#0D0D0F"/>
   <defs>
-    <linearGradient id="fv-btc" x1="16" y1="29" x2="4" y2="3" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FF9800"/>
-      <stop offset="1" stop-color="#FFB84D"/>
+    <linearGradient id="fv-btc" x1="20" y1="4" x2="4" y2="37" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB84D"/>
+      <stop offset="1" stop-color="#E07000"/>
     </linearGradient>
-    <linearGradient id="fv-sol" x1="16" y1="29" x2="28" y2="3" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#9945FF"/>
-      <stop offset="1" stop-color="#B370FF"/>
-    </linearGradient>
-    <linearGradient id="fv-cross" x1="8" y1="19" x2="24" y2="19" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FF9800"/>
-      <stop offset="0.45" stop-color="#14F195"/>
-      <stop offset="1" stop-color="#9945FF"/>
+    <linearGradient id="fv-sol" x1="20" y1="4" x2="36" y2="37" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B370FF"/>
+      <stop offset="1" stop-color="#6A10D4"/>
     </linearGradient>
   </defs>
-  <line x1="16" y1="3" x2="4" y2="29" stroke="url(#fv-btc)" stroke-width="5.5" stroke-linecap="round"/>
-  <line x1="16" y1="3" x2="28" y2="29" stroke="url(#fv-sol)" stroke-width="5.5" stroke-linecap="round"/>
-  <line x1="8" y1="19" x2="24" y2="19" stroke="url(#fv-cross)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M20 5 L5 22 L20 36 Z" fill="url(#fv-btc)"/>
+  <path d="M20 5 L35 22 L20 36 Z" fill="url(#fv-sol)"/>
+  <path d="M20 5 L5 22 L20 19 Z" fill="white" fill-opacity="0.13"/>
+  <path d="M20 5 L35 22 L20 19 Z" fill="white" fill-opacity="0.07"/>
+  <line x1="20" y1="5" x2="20" y2="36" stroke="#14F195" stroke-width="1.5" stroke-opacity="0.9"/>
+  <circle cx="20" cy="5" r="2" fill="#14F195"/>
 </svg>
