@@ -66,9 +66,9 @@ export default function PullToRefresh({ children }: Props) {
     el.addEventListener("touchend", onTouchEnd);
 
     return () => {
-      el.removeEventListener("touchstart", onTouchStart as any);
-      el.removeEventListener("touchmove", onTouchMove as any);
-      el.removeEventListener("touchend", onTouchEnd as any);
+      el.removeEventListener("touchstart", onTouchStart as EventListener);
+      el.removeEventListener("touchmove", onTouchMove as EventListener);
+      el.removeEventListener("touchend", onTouchEnd as EventListener);
     };
   }, []);
 

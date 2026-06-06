@@ -17,14 +17,14 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto">
             <div className="text-center max-w-2xl mx-auto mb-12">
               <p className="text-xs uppercase tracking-[0.2em] text-text-tertiary mb-3">Two Chains. One Creator.</p>
-              <h2 className="text-3xl md:text-4xl font-bold font-headings mb-3">Whether you want permanence or speed, we've got you covered.</h2>
+              <h2 className="text-3xl md:text-4xl font-bold font-headings mb-3">Whether you want permanence or speed, we&apos;ve got you covered.</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <Card>
                 <CardHeader>
                   <CardTitle>Inscribe on Bitcoin</CardTitle>
                   <CardDescription>
-                    Your art becomes part of Bitcoin's permanent ledger.
+                    Your art becomes part of Bitcoin&apos;s permanent ledger.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

@@ -83,8 +83,8 @@ export function ListingModal({ isOpen, onClose, mintAddress, nftName, nftImage, 
       setTxSig(result.txSignature);
       setStep("success");
       addToast({ type: "success", message: `${nftName} listed for ${priceSOL} SOL` });
-    } catch (err: any) {
-      setError(err?.message ?? "Transaction failed. Please try again.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Transaction failed. Please try again.");
       setStep("confirm");
     }
   };

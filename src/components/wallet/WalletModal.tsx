@@ -25,8 +25,17 @@ function useDetectedWallets() {
   });
 
   useEffect(() => {
+    interface InjectedWallet {
+      phantom?: { solana?: { isPhantom?: boolean } };
+      solana?: { isPhantom?: boolean };
+      backpack?: { isBackpack?: boolean };
+      solflare?: { isSolflare?: boolean };
+      XverseProviders?: { BitcoinProvider?: unknown };
+      BitcoinProvider?: unknown;
+      LeatherProvider?: unknown;
+    }
     const check = () => {
-      const w = window as any;
+      const w = window as Window & InjectedWallet;
       setDetected({
         phantom: !!(w.phantom?.solana?.isPhantom || w.solana?.isPhantom),
         backpack: !!(w.backpack?.isBackpack),
@@ -81,20 +90,19 @@ export const WalletModal: React.FC = () => {
       if (!solanaWallet.connected) {
         await solanaWallet.connect();
       }
-      const pub =
-        solanaWallet.publicKey?.toBase58?.() ??
-        (solanaWallet.publicKey as any)?.toString?.();
+      const pub = solanaWallet.publicKey?.toBase58() ?? null;
       if (pub) {
         setSolanaAddress(pub);
         closeModal();
       } else {
         setError("Could not retrieve public key. Make sure your wallet is unlocked.");
       }
-    } catch (err: any) {
-      if (err?.message?.includes("User rejected")) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("User rejected")) {
         setError("Connection rejected.");
       } else {
-        setError(err?.message ?? "Connection failed.");
+        setError(msg || "Connection failed.");
       }
     } finally {
       setConnecting(null);
@@ -108,11 +116,12 @@ export const WalletModal: React.FC = () => {
       const connection = await connectBitcoinWallet();
       setBtcState(connection.ordinalsAddress, connection.paymentAddress, connection.publicKey);
       closeModal();
-    } catch (err: any) {
-      if (err?.message?.includes("User rejected") || err?.message?.includes("canceled")) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("User rejected") || msg.includes("canceled")) {
         setError("Connection rejected.");
       } else {
-        setError(err?.message ?? "Bitcoin wallet connection failed.");
+        setError(msg || "Bitcoin wallet connection failed.");
       }
     } finally {
       setConnecting(null);

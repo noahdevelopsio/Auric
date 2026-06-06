@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { useMarketplaceStore, Listing } from "@/store/marketplaceStore";
 import { useWalletStore } from "@/store/walletStore";
 import { BuyModal } from "@/components/marketplace/BuyModal";

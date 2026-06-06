@@ -66,8 +66,8 @@ export function BuyModal({ isOpen, onClose, mintAddress, nftName, nftImage, pric
       setTxSig(result.txSignature);
       setStep("success");
       addToast({ type: "success", message: `You bought ${nftName} for ${priceSOL} ${currency}!` });
-    } catch (err: any) {
-      setError(err?.message ?? "Transaction failed. Please try again.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Transaction failed. Please try again.");
       setStep("confirm");
     }
   };
@@ -114,7 +114,7 @@ export function BuyModal({ isOpen, onClose, mintAddress, nftName, nftImage, pric
           </div>
 
           <p className="text-xs text-text-tertiary">
-            Royalties and platform fees are deducted from the seller's proceeds — you only pay the listed price plus network fees.
+            Royalties and platform fees are deducted from the seller&apos;s proceeds — you only pay the listed price plus network fees.
           </p>
 
           {error && <p className="text-xs text-semantic-error">{error}</p>}

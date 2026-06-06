@@ -42,7 +42,8 @@ export function calcSellerProceeds(priceSOL: number, royaltyBps: number): number
   return priceSOL - calcPlatformFee(priceSOL) - calcRoyaltyFee(priceSOL, royaltyBps);
 }
 
-export async function createListing(params: ListingParams): Promise<ListingResult> {
+export async function createListing(_params: ListingParams): Promise<ListingResult> {
+  void _params;
   // TODO: Replace stub with Metaplex Auction House listing:
   // const metaplex = Metaplex.make(params.connection).use(walletAdapterIdentity(wallet));
   // const ah = await metaplex.auctionHouse().findByAddress({ address: AUCTION_HOUSE_ADDRESS });
@@ -59,7 +60,8 @@ export async function createListing(params: ListingParams): Promise<ListingResul
   };
 }
 
-export async function executeBuy(params: BuyParams): Promise<BuyResult> {
+export async function executeBuy(_params: BuyParams): Promise<BuyResult> {
+  void _params;
   // TODO: Replace stub with Metaplex Auction House buy + executeSale:
   // const metaplex = Metaplex.make(params.connection).use(walletAdapterIdentity(wallet));
   // const ah = await metaplex.auctionHouse().findByAddress({ address: AUCTION_HOUSE_ADDRESS });

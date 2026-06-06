@@ -39,11 +39,8 @@ export function createPsbtFromUtxos(opts: {
   let inputSum = 0;
   for (const u of opts.utxos) {
     // For PSBT.addInput we need nonWitnessUtxo or witnessUtxo; here we add minimal witnessUtxo when value available.
-    psbt.addInput({
-      hash: u.txid,
-      index: u.vout,
-      witnessUtxo: { script: Buffer.from(u.scriptPubKey ?? '', 'hex'), value: BigInt(u.value) },
-    } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    psbt.addInput({ hash: u.txid, index: u.vout, witnessUtxo: { script: Buffer.from(u.scriptPubKey ?? '', 'hex'), value: BigInt(u.value) } } as any);
     inputSum += u.value;
   }
 
@@ -60,7 +57,7 @@ export function createPsbtFromUtxos(opts: {
 export function finalizePsbt(psbt: bitcoin.Psbt) {
   try {
     psbt.finalizeAllInputs();
-  } catch (e) {
+  } catch {
     // finalize may fail if inputs are not fully signed
   }
   return psbt.extractTransaction().toHex();

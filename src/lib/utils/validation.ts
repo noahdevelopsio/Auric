@@ -167,7 +167,7 @@ export function sanitizeContent(content: string): string {
   if (typeof window === 'undefined') return content;
   
   // Dynamic import to avoid SSR issues
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const DOMPurify = require('isomorphic-dompurify');
   return DOMPurify.sanitize(content, {
     USE_PROFILES: { svg: true, svgFilters: true },

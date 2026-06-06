@@ -4,8 +4,6 @@ import { useState } from "react";
 import { use } from "react";
 import { NFTCard } from "@/components/nft/NFTCard";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { ChainIcon } from "@/components/ui/ChainIcon";
 import { BadgeCheck, ExternalLink, Search, SlidersHorizontal } from "lucide-react";
 
@@ -89,7 +87,7 @@ export default function CollectionPage({ params }: { params: Promise<{ slug: str
 
       {/* Stats Strip */}
       <div className="grid grid-cols-3 md:grid-cols-6 divide-x divide-border-subtle border border-border-subtle rounded-xl bg-bg-surface mb-8 overflow-hidden">
-        {STATS.map((stat, i) => (
+        {STATS.map((stat) => (
           <div key={stat.label} className="px-4 py-4 text-center">
             <div className="font-display font-bold text-lg text-text-primary">{stat.value}</div>
             <div className="text-xs text-text-tertiary mt-0.5">{stat.label}</div>

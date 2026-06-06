@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Search, Filter } from "lucide-react";
-import { useWalletStore } from "@/store/walletStore";
 
 import { NFTCard } from "@/components/nft/NFTCard";
 
