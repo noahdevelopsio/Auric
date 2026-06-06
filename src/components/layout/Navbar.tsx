@@ -53,6 +53,7 @@ export function Navbar() {
   const navItems = useMemo(
     () => [
       { href: "/explore", label: "Explore" },
+      { href: "/marketplace", label: "Marketplace" },
       { href: "/mint", label: "Create" },
       { href: "/explore?view=collections", label: "Collections" },
     ],

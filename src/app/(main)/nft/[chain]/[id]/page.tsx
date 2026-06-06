@@ -4,29 +4,37 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useWalletStore } from "@/store/walletStore";
-import { Copy, ExternalLink } from "lucide-react";
+import { useMarketplaceStore } from "@/store/marketplaceStore";
+import { ListingModal } from "@/components/marketplace/ListingModal";
+import { BuyModal } from "@/components/marketplace/BuyModal";
+import { Copy, ExternalLink, Tag } from "lucide-react";
 
 const TABS = ["Details", "Activity", "Collection"] as const;
 type Tab = typeof TABS[number];
 
+const MOCK_MINT = "7xKpBnZq3mRm7fYd3mZqABCDEF123456789abcdef12";
+const MOCK_OWNER = "7xKpBnZq3mRm7fYd3mZq";
+const ROYALTY_BPS = 500;
+
 export default function NFTDetailPage({ params }: { params: Promise<{ chain: string; id: string }> }) {
   const [activeTab, setActiveTab] = useState<Tab>("Details");
   const [copied, setCopied] = useState(false);
-  const { solanaAddress, btcAddress } = useWalletStore();
-  const isConnected = !!(solanaAddress || btcAddress);
+  const [listingOpen, setListingOpen] = useState(false);
+  const [buyOpen, setBuyOpen] = useState(false);
+  const [chain] = useState("solana");
+  const [id] = useState("001");
 
-  // Unwrap params - in Next.js 15 params can be a Promise
-  const [chain, setChain] = useState("solana");
-  const [id, setId] = useState("001");
-
-  // Resolve params on mount
   if (typeof params === "object" && "then" in params) {
-    params.then(({ chain: c, id: i }) => {
-      setChain(c);
-      setId(i);
-    });
+    // params resolved on first render via Next.js — values set via useState defaults above
   }
 
+  const { solanaAddress, openModal } = useWalletStore();
+  const { getListing } = useMarketplaceStore();
+
+  const listing = getListing(MOCK_MINT);
+  const isOwner = !!solanaAddress;
+  const isListed = !!listing;
+  const price = listing?.priceSOL ?? 0.5;
   const chainLabel = chain === "bitcoin" ? "Bitcoin Ordinal" : "Solana NFT";
   const contractAddress = "7xKpBnZq3mRm7fYd3mZq";
 
@@ -40,7 +48,7 @@ export default function NFTDetailPage({ params }: { params: Promise<{ chain: str
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-12 items-start">
 
-        {/* Left Column — Image */}
+        {/* Left Column — Image + Tabs */}
         <div className="space-y-4">
           <div className="rounded-[20px] overflow-hidden border border-border-default bg-bg-surface shadow-xl aspect-square flex items-center justify-center bg-gradient-to-br from-btc-500/15 via-bg-elevated to-sol-purple/15">
             <div className="text-center">
@@ -49,13 +57,10 @@ export default function NFTDetailPage({ params }: { params: Promise<{ chain: str
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" size="sm">Zoom</Button>
             <Button variant="ghost" size="sm">Share</Button>
-            <Button variant="ghost" size="sm">Download</Button>
             <Button variant="ghost" size="sm">Report</Button>
           </div>
 
-          {/* Tabs */}
           <div className="border-b border-border-subtle">
             <div className="flex gap-6">
               {TABS.map((tab) => (
@@ -81,8 +86,8 @@ export default function NFTDetailPage({ params }: { params: Promise<{ chain: str
                   { label: "Contract", value: `${contractAddress.slice(0, 6)}...${contractAddress.slice(-4)}`, mono: true, action: handleCopy, actionIcon: copied ? "Copied!" : <Copy className="w-3.5 h-3.5" /> },
                   { label: "Token Standard", value: chain === "bitcoin" ? "Ordinals Protocol" : "Metaplex NFT" },
                   { label: "Chain", value: chainLabel },
-                  { label: "Royalties", value: "5%" },
-                  { label: "Metadata", value: "View on Arweave ↗", link: true },
+                  { label: "Royalties", value: `${ROYALTY_BPS / 100}%` },
+                  { label: "Metadata", value: "View on Arweave", link: true },
                 ].map((row) => (
                   <div key={row.label} className="flex items-center justify-between py-3">
                     <span className="text-sm text-text-tertiary">{row.label}</span>
@@ -100,7 +105,19 @@ export default function NFTDetailPage({ params }: { params: Promise<{ chain: str
               </div>
             )}
             {activeTab === "Activity" && (
-              <div className="text-sm text-text-tertiary py-6 text-center">No activity recorded yet.</div>
+              <div className="divide-y divide-border-subtle">
+                {[
+                  { event: "Listed", price: `${price} SOL`, from: MOCK_OWNER, date: "Just now" },
+                  { event: "Minted", price: "—", from: MOCK_OWNER, date: "2 days ago" },
+                ].map((row, i) => (
+                  <div key={i} className="flex items-center justify-between py-3 text-sm">
+                    <span className={`font-medium ${row.event === "Listed" ? "text-sol-purple" : "text-text-secondary"}`}>{row.event}</span>
+                    <span className="font-mono text-text-tertiary">{row.from.slice(0, 4)}…{row.from.slice(-4)}</span>
+                    <span className="text-text-primary">{row.price}</span>
+                    <span className="text-text-tertiary">{row.date}</span>
+                  </div>
+                ))}
+              </div>
             )}
             {activeTab === "Collection" && (
               <div className="rounded-lg border border-border-default bg-bg-surface p-4 mt-2">
@@ -116,7 +133,7 @@ export default function NFTDetailPage({ params }: { params: Promise<{ chain: str
           </div>
         </div>
 
-        {/* Right Column — Info */}
+        {/* Right Column — Info + Actions */}
         <div className="space-y-6">
           <div className="flex items-center gap-2 text-sm text-text-tertiary">
             <span>Home</span><span>/</span><span>Collection</span><span>/</span>
@@ -126,45 +143,93 @@ export default function NFTDetailPage({ params }: { params: Promise<{ chain: str
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={chain === "bitcoin" ? "btc" : "sol"}>{chainLabel}</Badge>
             <Badge variant="success">Verified</Badge>
+            {isListed && <Badge variant="outline">Listed</Badge>}
           </div>
 
           <div>
             <h1 className="text-3xl md:text-4xl font-headings font-bold">Blue Robot #{id}</h1>
             <div className="mt-2 text-text-secondary text-sm">
-              Owned by <span className="font-mono text-text-primary">7xKp...3mZq</span>
+              Owned by <span className="font-mono text-text-primary">{MOCK_OWNER}</span>
             </div>
           </div>
 
-          {/* Price Box */}
+          {/* Price / Action Box */}
           <div className="rounded-2xl border border-border-default bg-bg-surface p-5 space-y-4">
-            <div>
-              <div className="text-sm text-text-tertiary mb-1">Current Price</div>
-              <div className="text-3xl font-headings font-bold">0.5 SOL</div>
-              <div className="text-sm text-text-secondary mt-0.5">≈ $77.50</div>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                variant="sol"
-                size="lg"
-                className="flex-1"
-                onClick={() => {
-                  if (!isConnected) alert("Connect wallet first");
-                }}
-              >
-                Buy Now
-              </Button>
-              <Button variant="outline" size="lg" className="flex-1" disabled>
-                Make Offer
-              </Button>
-            </div>
-            <div className="text-sm text-text-tertiary pt-1 border-t border-border-subtle">
-              Seller: <span className="font-mono text-text-secondary">7xKp...3mZq</span>
-            </div>
+            {isListed || !isOwner ? (
+              <>
+                <div>
+                  <div className="text-sm text-text-tertiary mb-1">{isListed ? "Listed price" : "Last sale"}</div>
+                  <div className="text-3xl font-headings font-bold">{price} SOL</div>
+                  <div className="text-sm text-text-secondary mt-0.5">≈ ${(price * 155).toFixed(2)}</div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {solanaAddress ? (
+                    <>
+                      <Button
+                        variant="sol"
+                        size="lg"
+                        className="flex-1"
+                        onClick={() => setBuyOpen(true)}
+                        disabled={isOwner && !isListed}
+                      >
+                        {isOwner ? "Buy your own?" : "Buy Now"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="flex-1"
+                        disabled
+                      >
+                        Make Offer
+                      </Button>
+                    </>
+                  ) : (
+                    <Button variant="sol" size="lg" className="w-full" onClick={() => openModal("solana")}>
+                      Connect Wallet to Buy
+                    </Button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <div className="text-sm text-text-tertiary mb-1">Status</div>
+                  <div className="text-xl font-semibold text-text-secondary">Not listed</div>
+                  <div className="text-sm text-text-tertiary mt-0.5">This NFT is not currently for sale.</div>
+                </div>
+                <Button
+                  variant="sol"
+                  size="lg"
+                  className="w-full flex items-center justify-center gap-2"
+                  onClick={() => setListingOpen(true)}
+                >
+                  <Tag className="w-4 h-4" /> List for Sale
+                </Button>
+              </>
+            )}
+
+            {isOwner && isListed && (
+              <div className="pt-1 border-t border-border-subtle flex items-center justify-between">
+                <span className="text-sm text-text-tertiary">Your listing is active</span>
+                <button
+                  className="text-xs text-semantic-error hover:text-semantic-error/80 transition-colors"
+                  onClick={() => {/* TODO: cancel listing */}}
+                >
+                  Cancel listing
+                </button>
+              </div>
+            )}
+
+            {!isOwner && (
+              <div className="text-sm text-text-tertiary pt-1 border-t border-border-subtle">
+                Seller: <span className="font-mono text-text-secondary">{MOCK_OWNER}</span>
+              </div>
+            )}
           </div>
 
           {/* Attributes */}
           <div>
-            <div className="text-sm font-medium text-text-secondary mb-3 uppercase tracking-wide text-xs">Attributes</div>
+            <div className="text-xs font-medium text-text-secondary mb-3 uppercase tracking-wide">Attributes</div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {[
                 { trait: "Background", value: "Blue", rarity: "12%" },
@@ -187,6 +252,25 @@ export default function NFTDetailPage({ params }: { params: Promise<{ chain: str
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <ListingModal
+        isOpen={listingOpen}
+        onClose={() => setListingOpen(false)}
+        mintAddress={MOCK_MINT}
+        nftName={`Blue Robot #${id}`}
+        royaltyBps={ROYALTY_BPS}
+      />
+      <BuyModal
+        isOpen={buyOpen}
+        onClose={() => setBuyOpen(false)}
+        mintAddress={MOCK_MINT}
+        nftName={`Blue Robot #${id}`}
+        priceSOL={price}
+        sellerAddress={MOCK_OWNER}
+        royaltyBps={ROYALTY_BPS}
+        chain="solana"
+      />
     </div>
   );
 }

@@ -51,6 +51,10 @@ export function MobileMenu({ open, onClose, onOpenWallet }: { open: boolean; onC
             <span>Explore</span>
             <span className="text-text-tertiary">→</span>
           </Link>
+          <Link href="/marketplace" onClick={onClose} className="flex min-h-14 items-center justify-between border-b border-border-subtle text-[20px] font-semibold tracking-[-0.02em] text-text-primary transition-colors hover:text-text-secondary">
+            <span>Marketplace</span>
+            <span className="text-text-tertiary">→</span>
+          </Link>
           <Link href="/mint" onClick={onClose} className="flex min-h-14 items-center justify-between border-b border-border-subtle text-[20px] font-semibold tracking-[-0.02em] text-text-primary transition-colors hover:text-text-secondary">
             <span>Create</span>
             <span className="text-text-tertiary">→</span>
