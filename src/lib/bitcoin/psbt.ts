@@ -25,10 +25,11 @@ export function normalizePsbtInput(psbtInput: string) {
 }
 
 // Create a basic PSBT for a single recipient from provided UTXOs.
-// This is a helper; real production code must handle change, fee estimation, and safety checks.
+// This is a helper; real production code must handle fee estimation and dust limits too.
 export function createPsbtFromUtxos(opts: {
   utxos: Array<{ txid: string; vout: number; value: number; scriptPubKey?: string }>;
   toAddress: string;
+  changeAddress: string;
   amount: number; // sats
   fee: number; // sats
   network?: Network;
@@ -45,10 +46,13 @@ export function createPsbtFromUtxos(opts: {
   }
 
   const change = inputSum - opts.amount - opts.fee;
+  if (change < 0) {
+    throw new Error('Insufficient UTXO value to cover amount and fee');
+  }
+
   psbt.addOutput({ address: opts.toAddress, value: BigInt(opts.amount) });
   if (change > 0) {
-    // caller should replace this with an actual change address
-    psbt.addOutput({ address: opts.toAddress, value: BigInt(change) });
+    psbt.addOutput({ address: opts.changeAddress, value: BigInt(change) });
   }
 
   return psbt;

@@ -5,9 +5,13 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useWalletStore } from "@/store/walletStore";
 import { useMarketplaceStore } from "@/store/marketplaceStore";
+import { useToastStore } from "@/store/toastStore";
 import { ListingModal } from "@/components/marketplace/ListingModal";
 import { BuyModal } from "@/components/marketplace/BuyModal";
-import { Copy, ExternalLink, Tag } from "lucide-react";
+import { cancelListing } from "@/lib/marketplace/solana";
+import { useConnection } from "@solana/wallet-adapter-react";
+import { PublicKey } from "@solana/web3.js";
+import { Copy, ExternalLink, Loader2, Tag } from "lucide-react";
 
 const TABS = ["Details", "Activity", "Collection"] as const;
 type Tab = typeof TABS[number];
@@ -21,6 +25,7 @@ export default function NFTDetailPage({ params }: { params: Promise<{ chain: str
   const [copied, setCopied] = useState(false);
   const [listingOpen, setListingOpen] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [chain] = useState("solana");
   const [id] = useState("001");
 
@@ -29,7 +34,9 @@ export default function NFTDetailPage({ params }: { params: Promise<{ chain: str
   }
 
   const { solanaAddress, openModal } = useWalletStore();
-  const { getListing } = useMarketplaceStore();
+  const { getListing, removeListing } = useMarketplaceStore();
+  const { addToast } = useToastStore();
+  const { connection } = useConnection();
 
   const listing = getListing(MOCK_MINT);
   const isOwner = !!solanaAddress;
@@ -42,6 +49,24 @@ export default function NFTDetailPage({ params }: { params: Promise<{ chain: str
     navigator.clipboard.writeText(contractAddress);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCancelListing = async () => {
+    if (!solanaAddress || cancelling) return;
+    setCancelling(true);
+    try {
+      await cancelListing({
+        connection,
+        sellerPublicKey: new PublicKey(solanaAddress),
+        mintAddress: MOCK_MINT,
+      });
+      removeListing(MOCK_MINT);
+      addToast({ type: "success", message: `Listing for Blue Robot #${id} cancelled` });
+    } catch (err: unknown) {
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Failed to cancel listing. Please try again." });
+    } finally {
+      setCancelling(false);
+    }
   };
 
   return (
@@ -212,10 +237,12 @@ export default function NFTDetailPage({ params }: { params: Promise<{ chain: str
               <div className="pt-1 border-t border-border-subtle flex items-center justify-between">
                 <span className="text-sm text-text-tertiary">Your listing is active</span>
                 <button
-                  className="text-xs text-semantic-error hover:text-semantic-error/80 transition-colors"
-                  onClick={() => {/* TODO: cancel listing */}}
+                  className="text-xs text-semantic-error hover:text-semantic-error/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                  disabled={cancelling}
+                  onClick={handleCancelListing}
                 >
-                  Cancel listing
+                  {cancelling && <Loader2 className="w-3 h-3 animate-spin" />}
+                  {cancelling ? "Cancelling…" : "Cancel listing"}
                 </button>
               </div>
             )}

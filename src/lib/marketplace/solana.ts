@@ -21,12 +21,22 @@ export interface BuyParams {
   royaltyBps: number;
 }
 
+export interface CancelListingParams {
+  connection: Connection;
+  sellerPublicKey: PublicKey;
+  mintAddress: string;
+}
+
 export interface ListingResult {
   txSignature: string;
   listingAddress: string;
 }
 
 export interface BuyResult {
+  txSignature: string;
+}
+
+export interface CancelListingResult {
   txSignature: string;
 }
 
@@ -57,6 +67,20 @@ export async function createListing(_params: ListingParams): Promise<ListingResu
   return {
     txSignature: Array.from({ length: 88 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789"[Math.floor(Math.random() * 58)]).join(""),
     listingAddress: Array.from({ length: 44 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789"[Math.floor(Math.random() * 58)]).join(""),
+  };
+}
+
+export async function cancelListing(_params: CancelListingParams): Promise<CancelListingResult> {
+  void _params;
+  // TODO: Replace stub with Metaplex Auction House cancel:
+  // const metaplex = Metaplex.make(params.connection).use(walletAdapterIdentity(wallet));
+  // const ah = await metaplex.auctionHouse().findByAddress({ address: AUCTION_HOUSE_ADDRESS });
+  // const listing = await metaplex.auctionHouse().findListingByAddress({ address: listingTradeState });
+  // const { response } = await metaplex.auctionHouse().cancelListing({ auctionHouse: ah, listing });
+  // return { txSignature: response.signature };
+  await new Promise((r) => setTimeout(r, 1200));
+  return {
+    txSignature: Array.from({ length: 88 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789"[Math.floor(Math.random() * 58)]).join(""),
   };
 }
 

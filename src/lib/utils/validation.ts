@@ -1,5 +1,7 @@
 import { FILE_SIZE_LIMITS, MAX_NAME_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_ATTRIBUTES, MAX_ROYALTY_BPS, MAX_BIO_LENGTH } from './constants';
 import type { ChainType } from '@/types/nft';
+import { PublicKey } from '@solana/web3.js';
+import * as bitcoin from 'bitcoinjs-lib';
 
 export interface ValidationError {
   field: string;
@@ -77,23 +79,35 @@ export function validateFileSize(file: File, chain: ChainType): string | null {
 }
 
 /**
- * Validate wallet address format (basic check)
+ * Validate Solana wallet address — must be a valid base58 public key that lies on the ed25519 curve
  */
 export function validateSolanaAddress(address: string): string | null {
   if (!address) return 'Wallet address is required';
-  if (address.length < 32 || address.length > 44) return 'Invalid Solana wallet address';
+  let pubkey: PublicKey;
+  try {
+    pubkey = new PublicKey(address);
+  } catch {
+    return 'Invalid Solana wallet address';
+  }
+  if (!PublicKey.isOnCurve(pubkey.toBytes())) return 'Invalid Solana wallet address';
   return null;
 }
 
 /**
- * Validate BTC address format (basic check)
+ * Validate BTC address — decodes the address against mainnet and testnet to confirm it's well-formed
  */
 export function validateBtcAddress(address: string): string | null {
   if (!address) return 'BTC address is required';
-  if (!address.startsWith('bc1') && !address.startsWith('1') && !address.startsWith('3')) {
-    return 'Invalid Bitcoin address format';
-  }
-  if (address.length < 26 || address.length > 62) return 'Invalid Bitcoin address length';
+  const networks = [bitcoin.networks.bitcoin, bitcoin.networks.testnet];
+  const isValid = networks.some((network) => {
+    try {
+      bitcoin.address.toOutputScript(address, network);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  if (!isValid) return 'Invalid Bitcoin address';
   return null;
 }
 

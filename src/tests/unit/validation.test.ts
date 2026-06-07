@@ -99,26 +99,26 @@ describe("validateAttributes", () => {
 });
 
 describe("validateSolanaAddress", () => {
-  it("accepts a valid-length Solana address", () => {
-    expect(validateSolanaAddress("7xKpBnZq3mRm7fYd3mZqABCDEF123456789abc")).toBeNull();
+  it("accepts a real on-curve Solana public key", () => {
+    expect(validateSolanaAddress("AmbEbesfEKs7vo7HJ1xqvDgUqAs7UAv1ts3KcgLvcLwf")).toBeNull();
   });
 
   it("rejects empty address", () => {
     expect(validateSolanaAddress("")).not.toBeNull();
   });
 
-  it("rejects address shorter than 32 chars", () => {
+  it("rejects a non-base58 / malformed string", () => {
     expect(validateSolanaAddress("short")).not.toBeNull();
   });
 
-  it("rejects address longer than 44 chars", () => {
+  it("rejects an address that is the wrong byte length", () => {
     expect(validateSolanaAddress("a".repeat(45))).not.toBeNull();
   });
 });
 
 describe("validateBtcAddress", () => {
-  it("accepts native segwit (bc1) address", () => {
-    expect(validateBtcAddress("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5m")).toBeNull();
+  it("accepts native segwit (bech32) address", () => {
+    expect(validateBtcAddress("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4")).toBeNull();
   });
 
   it("accepts legacy (1) address", () => {
@@ -129,7 +129,7 @@ describe("validateBtcAddress", () => {
     expect(validateBtcAddress("")).not.toBeNull();
   });
 
-  it("rejects address with invalid prefix", () => {
+  it("rejects a malformed address", () => {
     expect(validateBtcAddress("xpubinvalidaddress123456789012345")).not.toBeNull();
   });
 });
