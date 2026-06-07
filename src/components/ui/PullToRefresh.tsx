@@ -20,7 +20,8 @@ export default function PullToRefresh({ children }: Props) {
     if (!el) return;
 
     const onTouchStart = (e: TouchEvent) => {
-      if ((el.scrollTop ?? 0) > 0) return;
+      const scrollTop = window.scrollY || document.documentElement.scrollTop || el.scrollTop || 0;
+      if (scrollTop > 0) return;
       startY.current = e.touches[0].clientY;
       setDistance(0);
       setPulling(false);
