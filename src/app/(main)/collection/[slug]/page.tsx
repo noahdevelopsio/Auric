@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { use } from "react";
 import { NFTCard } from "@/components/nft/NFTCard";
 import { Badge } from "@/components/ui/Badge";
 import { ChainIcon } from "@/components/ui/ChainIcon";
@@ -36,8 +35,8 @@ const STATS = [
 
 const SORT_OPTIONS = ["Price: Low to High", "Price: High to Low", "Recently Listed", "Token ID"];
 
-export default function CollectionPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params);
+export default function CollectionPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   const [activeTab, setActiveTab] = useState<"Items" | "Activity">("Items");
   const [sortBy, setSortBy] = useState(SORT_OPTIONS[0]);
   const [searchQuery, setSearchQuery] = useState("");

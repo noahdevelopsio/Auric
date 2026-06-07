@@ -20,18 +20,13 @@ const MOCK_MINT = "7xKpBnZq3mRm7fYd3mZqABCDEF123456789abcdef12";
 const MOCK_OWNER = "7xKpBnZq3mRm7fYd3mZq";
 const ROYALTY_BPS = 500;
 
-export default function NFTDetailPage({ params }: { params: Promise<{ chain: string; id: string }> }) {
+export default function NFTDetailPage({ params }: { params: { chain: string; id: string } }) {
+  const { chain, id } = params;
   const [activeTab, setActiveTab] = useState<Tab>("Details");
   const [copied, setCopied] = useState(false);
   const [listingOpen, setListingOpen] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [chain] = useState("solana");
-  const [id] = useState("001");
-
-  if (typeof params === "object" && "then" in params) {
-    // params resolved on first render via Next.js — values set via useState defaults above
-  }
 
   const { solanaAddress, openModal } = useWalletStore();
   const { getListing, removeListing } = useMarketplaceStore();

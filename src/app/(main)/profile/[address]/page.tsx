@@ -5,9 +5,13 @@ import { NFTCard } from "@/components/nft/NFTCard";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ChainIcon } from "@/components/ui/ChainIcon";
-import { Copy, Check, ExternalLink } from "lucide-react";
+import { Copy, Check, ExternalLink, Loader2 } from "lucide-react";
 import { useWalletStore } from "@/store/walletStore";
-import { use } from "react";
+import { useMarketplaceStore } from "@/store/marketplaceStore";
+import { useToastStore } from "@/store/toastStore";
+import { cancelListing } from "@/lib/marketplace/solana";
+import { useConnection } from "@solana/wallet-adapter-react";
+import { PublicKey } from "@solana/web3.js";
 
 const COLLECTED = [
   { id: 1, name: "Blue Robot #001", chain: "solana" as const, price: "0.5 SOL" },
@@ -22,7 +26,7 @@ const CREATED = [
 ];
 
 const LISTED = [
-  { id: 1, name: "Blue Robot #001", chain: "solana" as const, price: "0.5 SOL" },
+  { id: 1, name: "Blue Robot #001", chain: "solana" as const, price: "0.5 SOL", mintAddress: "7xKpBnZq3mRm7fYd3mZqABCDEF123456789abcdef12" },
 ];
 
 const ACTIVITY: { id: number; type: string; nft: string; chain: "solana" | "bitcoin"; price: string | null; time: string }[] = [
@@ -35,12 +39,34 @@ const ACTIVITY: { id: number; type: string; nft: string; chain: "solana" | "bitc
 const TABS = ["Collected", "Created", "Listed", "Activity"] as const;
 type Tab = typeof TABS[number];
 
-export default function ProfilePage({ params }: { params: Promise<{ address: string }> }) {
-  const { address } = use(params);
+export default function ProfilePage({ params }: { params: { address: string } }) {
+  const { address } = params;
   const [activeTab, setActiveTab] = useState<Tab>("Collected");
   const [copied, setCopied] = useState(false);
+  const [delistingMint, setDelistingMint] = useState<string | null>(null);
   const { solanaAddress } = useWalletStore();
+  const { removeListing } = useMarketplaceStore();
+  const { addToast } = useToastStore();
+  const { connection } = useConnection();
   const isOwnProfile = solanaAddress === address;
+
+  const handleDelist = async (item: { name: string; mintAddress: string }) => {
+    if (!solanaAddress || delistingMint) return;
+    setDelistingMint(item.mintAddress);
+    try {
+      await cancelListing({
+        connection,
+        sellerPublicKey: new PublicKey(solanaAddress),
+        mintAddress: item.mintAddress,
+      });
+      removeListing(item.mintAddress);
+      addToast({ type: "success", message: `Listing for ${item.name} cancelled` });
+    } catch (err: unknown) {
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Failed to delist. Please try again." });
+    } finally {
+      setDelistingMint(null);
+    }
+  };
 
   const shortAddress = address
     ? `${address.slice(0, 6)}...${address.slice(-4)}`
@@ -193,8 +219,15 @@ export default function ProfilePage({ params }: { params: Promise<{ address: str
                   <NFTCard name={item.name} chain={item.chain} price={item.price} />
                   {isOwnProfile && (
                     <div className="mt-2">
-                      <Button variant="danger" size="sm" className="w-full">
-                        Delist
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        className="w-full flex items-center justify-center gap-1.5"
+                        disabled={delistingMint === item.mintAddress}
+                        onClick={() => handleDelist(item)}
+                      >
+                        {delistingMint === item.mintAddress && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        {delistingMint === item.mintAddress ? "Delisting…" : "Delist"}
                       </Button>
                     </div>
                   )}
