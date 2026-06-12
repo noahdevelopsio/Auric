@@ -40,28 +40,28 @@ export function Footer() {
               <li><Link href="/explore" className="transition-colors hover:text-text-primary">Explore</Link></li>
               <li><Link href="/mint" className="transition-colors hover:text-text-primary">Create</Link></li>
               <li><Link href="/explore?view=collections" className="transition-colors hover:text-text-primary">Collections</Link></li>
-              <li><Link href="/profile/7xKp...3mZq" className="transition-colors hover:text-text-primary">Activity</Link></li>
+              <li><Link href="/activity" className="transition-colors hover:text-text-primary">Activity</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="mb-4 text-xs font-medium uppercase tracking-[0.08em] text-text-secondary">Resources</h4>
             <ul className="space-y-3 text-sm text-text-secondary">
-              <li><Link href="#" className="transition-colors hover:text-text-primary">Documentation</Link></li>
-              <li><Link href="#" className="transition-colors hover:text-text-primary">FAQ</Link></li>
-              <li><Link href="#" className="transition-colors hover:text-text-primary">Bitcoin Ordinals Guide</Link></li>
-              <li><Link href="#" className="transition-colors hover:text-text-primary">Solana NFT Guide</Link></li>
-              <li><Link href="#" className="transition-colors hover:text-text-primary">API</Link></li>
+              <li><Link href="/docs" className="transition-colors hover:text-text-primary">Documentation</Link></li>
+              <li><Link href="/faq" className="transition-colors hover:text-text-primary">FAQ</Link></li>
+              <li><Link href="/guides/bitcoin-ordinals" className="transition-colors hover:text-text-primary">Bitcoin Ordinals Guide</Link></li>
+              <li><Link href="/guides/solana-nfts" className="transition-colors hover:text-text-primary">Solana NFT Guide</Link></li>
+              <li><Link href="/api-docs" className="transition-colors hover:text-text-primary">API</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="mb-4 text-xs font-medium uppercase tracking-[0.08em] text-text-secondary">Company</h4>
             <ul className="space-y-3 text-sm text-text-secondary">
-              <li><Link href="#" className="transition-colors hover:text-text-primary">About</Link></li>
-              <li><Link href="#" className="transition-colors hover:text-text-primary">Blog</Link></li>
-              <li><Link href="#" className="transition-colors hover:text-text-primary">Contact</Link></li>
-              <li><Link href="#" className="transition-colors hover:text-text-primary">Security</Link></li>
+              <li><Link href="/about" className="transition-colors hover:text-text-primary">About</Link></li>
+              <li><Link href="/blog" className="transition-colors hover:text-text-primary">Blog</Link></li>
+              <li><Link href="/contact" className="transition-colors hover:text-text-primary">Contact</Link></li>
+              <li><Link href="/security" className="transition-colors hover:text-text-primary">Security</Link></li>
             </ul>
           </div>
         </div>
@@ -69,8 +69,8 @@ export function Footer() {
         <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-border-subtle pt-6 text-sm text-text-tertiary md:flex-row">
           <p>© 2026 Auric. All rights reserved.</p>
           <div className="flex items-center gap-4">
-            <Link href="#" className="transition-colors hover:text-text-secondary">Privacy Policy</Link>
-            <Link href="#" className="transition-colors hover:text-text-secondary">Terms of Service</Link>
+            <Link href="/privacy" className="transition-colors hover:text-text-secondary">Privacy Policy</Link>
+            <Link href="/terms" className="transition-colors hover:text-text-secondary">Terms of Service</Link>
           </div>
         </div>
       </div>
