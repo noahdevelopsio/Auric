@@ -16,12 +16,12 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
 
 export interface UploadResponse {
   url: string;
-  arweave_id: string;
+  arweave_id?: string;
 }
 
 export interface MetadataResponse {
   metadata_url: string;
-  arweave_id: string;
+  arweave_id?: string;
 }
 
 export interface FeeEstimateResponse {

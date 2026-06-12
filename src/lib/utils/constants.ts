@@ -78,3 +78,9 @@ export const STORAGE_KEYS = {
   WALLET_STATE: 'auric-wallet-storage',
   THEME: 'auric-theme',
 } as const;
+
+// Supabase Storage buckets
+export const SUPABASE_BUCKETS = {
+  MEDIA: 'media',
+  METADATA: 'metadata',
+} as const;

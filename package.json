@@ -35,6 +35,7 @@
     "react-dom": "^18",
     "react-hook-form": "^7.76.1",
     "sats-connect": "^4.2.1",
+    "tweetnacl": "^1.0.3",
     "zod": "^4.4.3",
     "zustand": "^4.5.7"
   },

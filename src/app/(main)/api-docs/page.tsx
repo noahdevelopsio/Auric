@@ -67,12 +67,10 @@ export default function ApiDocsPage() {
       <div className="doc-content mt-8">
         <h2>Status</h2>
         <p>
-          The endpoints below define the planned shape of Auric&apos;s public API. Most of the
-          marketplace already works end-to-end through direct, client-signed on-chain
-          transactions — these HTTP endpoints exist to support things on-chain calls
-          can&apos;t do alone (profile storage, metadata hosting, media uploads, and inscription
-          lookups). They are under active development and currently respond with{" "}
-          <code>501 Not Implemented</code>.
+          The endpoints below make up Auric&apos;s public API. Most of the marketplace already
+          works end-to-end through direct, client-signed on-chain transactions — these HTTP
+          endpoints exist to support things on-chain calls can&apos;t do alone (profile storage,
+          metadata hosting, media uploads, and inscription lookups).
         </p>
       </div>
 
@@ -86,7 +84,7 @@ export default function ApiDocsPage() {
               <code className="font-mono text-sm text-text-primary truncate">{e.path}</code>
             </div>
             <span className="hidden sm:block text-sm text-text-secondary truncate">{e.summary}</span>
-            <Badge variant="warning" className="shrink-0">In development</Badge>
+            <Badge variant="success" className="shrink-0">Live</Badge>
           </Card>
         ))}
       </div>
