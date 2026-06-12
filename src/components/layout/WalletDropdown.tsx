@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { Copy, LogOut } from "lucide-react";
 import { useWalletStore } from "@/store/walletStore";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export function WalletDropdown({ onClose }: { onClose: () => void }) {
   const { solanaAddress, btcAddress, disconnectAll } = useWalletStore();
@@ -12,11 +12,12 @@ export function WalletDropdown({ onClose }: { onClose: () => void }) {
   const [activeIdx, setActiveIdx] = React.useState<number>(-1);
   const itemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
   const pathname = usePathname();
+  const router = useRouter();
 
   const menuItems = [
-    { id: 'profile', label: 'View Profile' },
-    { id: 'my-nfts', label: 'My NFTs' },
-    { id: 'my-listings', label: 'My Listings' },
+    { id: 'profile', label: 'View Profile', href: `/profile/${address}` },
+    { id: 'my-nfts', label: 'My NFTs', href: `/profile/${address}` },
+    { id: 'my-listings', label: 'My Listings', href: `/profile/${address}?tab=Listed` },
   ];
 
   useEffect(() => {
@@ -78,7 +79,7 @@ export function WalletDropdown({ onClose }: { onClose: () => void }) {
             role="menuitem"
             tabIndex={idx === 0 ? 0 : -1}
             className={`w-full text-left px-3 py-2 hover:bg-bg-highlight rounded-md flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong text-text-primary ${activeIdx === idx ? 'bg-bg-highlight' : ''}`}
-            onClick={() => { onClose(); }}
+            onClick={() => { router.push(it.href); onClose(); }}
           >
             <span className="text-sm">{it.label}</span>
           </button>

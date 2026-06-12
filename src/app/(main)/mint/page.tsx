@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
@@ -43,6 +44,7 @@ function calcBtcFees(fileBytes: number, feeRate: FeeRate) {
 }
 
 export default function MintPage() {
+  const router = useRouter();
   const [targetChain, setTargetChain] = useState<ChainType>("solana");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -216,7 +218,7 @@ export default function MintPage() {
               variant={targetChain === "solana" ? "sol" : "btc"}
               size="lg"
               className="flex-1"
-              onClick={() => alert("Navigate to NFT detail")}
+              onClick={() => router.push(`/nft/${targetChain}/001`)}
             >
               View Your NFT
             </Button>

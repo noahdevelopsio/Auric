@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { NFTCard } from "@/components/nft/NFTCard";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -43,7 +44,11 @@ type Tab = typeof TABS[number];
 
 export default function ProfilePage({ params }: { params: { address: string } }) {
   const { address } = params;
-  const [activeTab, setActiveTab] = useState<Tab>("Collected");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const initialTab: Tab = (TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as Tab) : "Collected";
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [copied, setCopied] = useState(false);
   const [delistingMint, setDelistingMint] = useState<string | null>(null);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
@@ -202,7 +207,13 @@ export default function ProfilePage({ params }: { params: { address: string } })
           {COLLECTED.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {COLLECTED.map((item) => (
-                <NFTCard key={item.id} name={item.name} chain={item.chain} price={item.price} />
+                <NFTCard
+                  key={item.id}
+                  name={item.name}
+                  chain={item.chain}
+                  price={item.price}
+                  onClick={() => router.push(`/nft/${item.chain}/${String(item.id).padStart(3, "0")}`)}
+                />
               ))}
             </div>
           ) : (
@@ -216,7 +227,13 @@ export default function ProfilePage({ params }: { params: { address: string } })
           {CREATED.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {CREATED.map((item) => (
-                <NFTCard key={item.id} name={item.name} chain={item.chain} price={item.price} />
+                <NFTCard
+                  key={item.id}
+                  name={item.name}
+                  chain={item.chain}
+                  price={item.price}
+                  onClick={() => router.push(`/nft/${item.chain}/${String(item.id).padStart(3, "0")}`)}
+                />
               ))}
             </div>
           ) : (
@@ -231,7 +248,12 @@ export default function ProfilePage({ params }: { params: { address: string } })
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {LISTED.map((item) => (
                 <div key={item.id} className="relative">
-                  <NFTCard name={item.name} chain={item.chain} price={item.price} />
+                  <NFTCard
+                    name={item.name}
+                    chain={item.chain}
+                    price={item.price}
+                    onClick={() => router.push(`/nft/${item.chain}/${String(item.id).padStart(3, "0")}`)}
+                  />
                   {isOwnProfile && (
                     <div className="mt-2">
                       <Button

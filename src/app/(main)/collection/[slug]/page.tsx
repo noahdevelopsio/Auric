@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { NFTCard } from "@/components/nft/NFTCard";
 import { Badge } from "@/components/ui/Badge";
 import { ChainIcon } from "@/components/ui/ChainIcon";
@@ -37,6 +38,7 @@ const SORT_OPTIONS = ["Price: Low to High", "Price: High to Low", "Recently List
 
 export default function CollectionPage({ params }: { params: { slug: string } }) {
   const { slug } = params;
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"Items" | "Activity">("Items");
   const [sortBy, setSortBy] = useState(SORT_OPTIONS[0]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -196,7 +198,13 @@ export default function CollectionPage({ params }: { params: { slug: string } })
             {filteredItems.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                 {filteredItems.map((item) => (
-                  <NFTCard key={item.id} name={item.name} chain={item.chain} price={item.price} />
+                  <NFTCard
+                    key={item.id}
+                    name={item.name}
+                    chain={item.chain}
+                    price={item.price}
+                    onClick={() => router.push(`/nft/${item.chain}/${String(item.id).padStart(3, "0")}`)}
+                  />
                 ))}
               </div>
             ) : (

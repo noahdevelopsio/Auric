@@ -6,7 +6,7 @@ import { AuricGemLogo } from "@/components/ui/AuricLogo";
 import { useWalletStore } from "@/store/walletStore";
 import { ArrowLeft, ChevronDown, Menu, Search, Wallet, Bitcoin, CircleDot } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { WalletModal } from "@/components/wallet/WalletModal";
 import MobileMenu from "./MobileMenu";
 import WalletDropdown from "./WalletDropdown";
@@ -19,6 +19,7 @@ export function Navbar() {
   const [walletDropdown, setWalletDropdown] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   const isConnected = !!solanaAddress || !!btcAddress;
   const address = activeChain === "solana" ? solanaAddress : btcAddress;
@@ -62,23 +63,29 @@ export function Navbar() {
 
   // mock data for search
   const mockNFTs = [
-    { id: 'n1', title: 'Blue Robot #001', collection: 'Robots' },
-    { id: 'n2', title: 'Sol Bloom', collection: 'Solana Flowers' },
-    { id: 'n3', title: 'Ordinal Ape', collection: 'Ordinals Club' }
+    { id: 'n1', title: 'Blue Robot #001', collection: 'Robots', chain: 'solana' as const, tokenId: '001' },
+    { id: 'n2', title: 'Sol Bloom', collection: 'Solana Flowers', chain: 'solana' as const, tokenId: '011' },
+    { id: 'n3', title: 'Ordinal Ape', collection: 'Ordinals Club', chain: 'bitcoin' as const, tokenId: '018' }
   ];
   const mockCollections = [
-    { id: 'c1', title: 'Robots' },
-    { id: 'c2', title: 'Solana Flowers' }
+    { id: 'c1', title: 'Robots', slug: 'robots' },
+    { id: 'c2', title: 'Solana Flowers', slug: 'solana-flowers' }
   ];
   const mockWallets = [
-    { id: 'w1', title: '7xKp...3mZq' },
-    { id: 'w2', title: '4nFz...8PbT' }
+    { id: 'w1', title: '7xKp...3mZq', address: '7xKpBnZq3mRm7fYd3mZqABCDEF123456789abcdef12' },
+    { id: 'w2', title: '4nFz...8PbT', address: '4nFzCQxmRm7fYd3mAbCdEf123456789abcdefghPbT' }
   ];
 
   const nftResults = mockNFTs.filter(n => n.title.toLowerCase().includes(searchQuery.toLowerCase()));
   const collectionResults = mockCollections.filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase()));
   const walletResults = mockWallets.filter(w => w.title.toLowerCase().includes(searchQuery.toLowerCase()) || w.title.includes(searchQuery));
   const showMobileSearch = searchOpen && !mobileOpen;
+
+  const goToSearchResult = (href: string) => {
+    setSearchOpen(false);
+    setSearchQuery("");
+    router.push(href);
+  };
 
   const chainDots = isConnected ? (
     <span className="flex items-center gap-1">
@@ -172,7 +179,12 @@ export function Navbar() {
                           <div className="mb-3">
                             <div className="px-2 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">NFTs</div>
                             {nftResults.map((n) => (
-                              <button key={n.id} role="option" className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-elevated">
+                              <button
+                                key={n.id}
+                                role="option"
+                                onClick={() => goToSearchResult(`/nft/${n.chain}/${n.tokenId}`)}
+                                className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-elevated"
+                              >
                                 <span>{n.title}</span>
                                 <span className="text-xs text-text-tertiary">{n.collection}</span>
                               </button>
@@ -184,7 +196,12 @@ export function Navbar() {
                           <div className="mb-3">
                             <div className="px-2 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Collections</div>
                             {collectionResults.map((c) => (
-                              <button key={c.id} role="option" className="w-full rounded-md px-3 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-elevated">
+                              <button
+                                key={c.id}
+                                role="option"
+                                onClick={() => goToSearchResult(`/collection/${c.slug}`)}
+                                className="w-full rounded-md px-3 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-elevated"
+                              >
                                 {c.title}
                               </button>
                             ))}
@@ -195,7 +212,12 @@ export function Navbar() {
                           <div>
                             <div className="px-2 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Wallets</div>
                             {walletResults.map((w) => (
-                              <button key={w.id} role="option" className="w-full rounded-md px-3 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-elevated">
+                              <button
+                                key={w.id}
+                                role="option"
+                                onClick={() => goToSearchResult(`/profile/${w.address}`)}
+                                className="w-full rounded-md px-3 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-elevated"
+                              >
                                 {w.title}
                               </button>
                             ))}
