@@ -11,6 +11,7 @@ export interface Listing {
   royaltyBps: number;
   expiresAt: number;
   txSignature: string;
+  listingAddress: string;
   listedAt: number;
 }
 

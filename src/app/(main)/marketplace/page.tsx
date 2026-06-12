@@ -13,12 +13,12 @@ type ChainFilter = "all" | "solana" | "bitcoin";
 type SortOrder = "recent" | "price_asc" | "price_desc";
 
 const MOCK_LISTINGS: Listing[] = [
-  { mintAddress: "mock1", nftName: "Neon Skull #042", chain: "solana", sellerAddress: "7xKpBnZq3mRm7fYd3mZq", priceSOL: 12.5, royaltyBps: 500, expiresAt: Date.now() + 7 * 86400000, txSignature: "sig1", listedAt: Date.now() - 3600000 },
-  { mintAddress: "mock2", nftName: "Ordinal Ape #7", chain: "bitcoin", sellerAddress: "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq", priceSOL: 0.05, royaltyBps: 500, expiresAt: Date.now() + 30 * 86400000, txSignature: "sig2", listedAt: Date.now() - 7200000 },
-  { mintAddress: "mock3", nftName: "Sol Bloom #11", chain: "solana", sellerAddress: "4nFzCQxmRm7fYd3mAbCdEf", priceSOL: 3.2, royaltyBps: 300, expiresAt: Date.now() + 1 * 86400000, txSignature: "sig3", listedAt: Date.now() - 600000 },
-  { mintAddress: "mock4", nftName: "Digital Relic #99", chain: "bitcoin", sellerAddress: "bc1q9h1nygkh6dkfquucp4qqrvy6gx8h3qv9cqhyq", priceSOL: 0.12, royaltyBps: 500, expiresAt: Date.now() + 7 * 86400000, txSignature: "sig4", listedAt: Date.now() - 1800000 },
-  { mintAddress: "mock5", nftName: "Cyber Punk #333", chain: "solana", sellerAddress: "9mKpBnZq3mRm7fYd3mZqXY", priceSOL: 55.0, royaltyBps: 500, expiresAt: Date.now() + 7 * 86400000, txSignature: "sig5", listedAt: Date.now() - 86400000 },
-  { mintAddress: "mock6", nftName: "Inscribed Cat #2", chain: "bitcoin", sellerAddress: "bc1qar0srrr7xfkvy5l643l", priceSOL: 0.025, royaltyBps: 1000, expiresAt: Date.now() + 30 * 86400000, txSignature: "sig6", listedAt: Date.now() - 3600000 * 5 },
+  { mintAddress: "mock1", nftName: "Neon Skull #042", chain: "solana", sellerAddress: "7xKpBnZq3mRm7fYd3mZq", priceSOL: 12.5, royaltyBps: 500, expiresAt: Date.now() + 7 * 86400000, txSignature: "sig1", listingAddress: "mocklisting1", listedAt: Date.now() - 3600000 },
+  { mintAddress: "mock2", nftName: "Ordinal Ape #7", chain: "bitcoin", sellerAddress: "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq", priceSOL: 0.05, royaltyBps: 500, expiresAt: Date.now() + 30 * 86400000, txSignature: "sig2", listingAddress: "mocklisting2", listedAt: Date.now() - 7200000 },
+  { mintAddress: "mock3", nftName: "Sol Bloom #11", chain: "solana", sellerAddress: "4nFzCQxmRm7fYd3mAbCdEf", priceSOL: 3.2, royaltyBps: 300, expiresAt: Date.now() + 1 * 86400000, txSignature: "sig3", listingAddress: "mocklisting3", listedAt: Date.now() - 600000 },
+  { mintAddress: "mock4", nftName: "Digital Relic #99", chain: "bitcoin", sellerAddress: "bc1q9h1nygkh6dkfquucp4qqrvy6gx8h3qv9cqhyq", priceSOL: 0.12, royaltyBps: 500, expiresAt: Date.now() + 7 * 86400000, txSignature: "sig4", listingAddress: "mocklisting4", listedAt: Date.now() - 1800000 },
+  { mintAddress: "mock5", nftName: "Cyber Punk #333", chain: "solana", sellerAddress: "9mKpBnZq3mRm7fYd3mZqXY", priceSOL: 55.0, royaltyBps: 500, expiresAt: Date.now() + 7 * 86400000, txSignature: "sig5", listingAddress: "mocklisting5", listedAt: Date.now() - 86400000 },
+  { mintAddress: "mock6", nftName: "Inscribed Cat #2", chain: "bitcoin", sellerAddress: "bc1qar0srrr7xfkvy5l643l", priceSOL: 0.025, royaltyBps: 1000, expiresAt: Date.now() + 30 * 86400000, txSignature: "sig6", listingAddress: "mocklisting6", listedAt: Date.now() - 3600000 * 5 },
 ];
 
 function timeLeft(expiresAt: number): string {
@@ -202,6 +202,7 @@ export default function MarketplacePage() {
           isOpen={!!activeBuy}
           onClose={() => setActiveBuy(null)}
           mintAddress={activeBuy.mintAddress}
+          listingAddress={activeBuy.listingAddress}
           nftName={activeBuy.nftName}
           nftImage={activeBuy.nftImage}
           priceSOL={activeBuy.priceSOL}

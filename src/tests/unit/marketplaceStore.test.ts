@@ -11,6 +11,7 @@ const MOCK_LISTING: Listing = {
   royaltyBps: 500,
   expiresAt: Date.now() + 86400000,
   txSignature: "txSig123",
+  listingAddress: "listingAddr123",
   listedAt: Date.now(),
 };
 

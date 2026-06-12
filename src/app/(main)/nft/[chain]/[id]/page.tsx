@@ -9,7 +9,7 @@ import { useToastStore } from "@/store/toastStore";
 import { ListingModal } from "@/components/marketplace/ListingModal";
 import { BuyModal } from "@/components/marketplace/BuyModal";
 import { cancelListing } from "@/lib/marketplace/solana";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { Copy, ExternalLink, Loader2, Tag } from "lucide-react";
 
@@ -32,6 +32,7 @@ export default function NFTDetailPage({ params }: { params: { chain: string; id:
   const { getListing, removeListing } = useMarketplaceStore();
   const { addToast } = useToastStore();
   const { connection } = useConnection();
+  const wallet = useWallet();
 
   const listing = getListing(MOCK_MINT);
   const isOwner = !!solanaAddress;
@@ -47,13 +48,15 @@ export default function NFTDetailPage({ params }: { params: { chain: string; id:
   };
 
   const handleCancelListing = async () => {
-    if (!solanaAddress || cancelling) return;
+    if (!solanaAddress || cancelling || !listing) return;
     setCancelling(true);
     try {
       await cancelListing({
         connection,
+        wallet,
         sellerPublicKey: new PublicKey(solanaAddress),
         mintAddress: MOCK_MINT,
+        listingAddress: listing.listingAddress,
       });
       removeListing(MOCK_MINT);
       addToast({ type: "success", message: `Listing for Blue Robot #${id} cancelled` });
@@ -287,6 +290,7 @@ export default function NFTDetailPage({ params }: { params: { chain: string; id:
         isOpen={buyOpen}
         onClose={() => setBuyOpen(false)}
         mintAddress={MOCK_MINT}
+        listingAddress={listing?.listingAddress ?? ""}
         nftName={`Blue Robot #${id}`}
         priceSOL={price}
         sellerAddress={MOCK_OWNER}

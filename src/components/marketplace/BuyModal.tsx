@@ -7,7 +7,7 @@ import { useWalletStore } from "@/store/walletStore";
 import { useMarketplaceStore } from "@/store/marketplaceStore";
 import { useToastStore } from "@/store/toastStore";
 import { executeBuy, calcPlatformFee, calcRoyaltyFee } from "@/lib/marketplace/solana";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { CheckCircle2, ExternalLink, Loader2, ShoppingBag } from "lucide-react";
 
@@ -19,6 +19,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   mintAddress: string;
+  listingAddress: string;
   nftName: string;
   nftImage?: string;
   priceSOL: number;
@@ -27,11 +28,12 @@ interface Props {
   chain?: "solana" | "bitcoin";
 }
 
-export function BuyModal({ isOpen, onClose, mintAddress, nftName, nftImage, priceSOL, sellerAddress, royaltyBps, chain = "solana" }: Props) {
+export function BuyModal({ isOpen, onClose, mintAddress, listingAddress, nftName, nftImage, priceSOL, sellerAddress, royaltyBps, chain = "solana" }: Props) {
   const { solanaAddress } = useWalletStore();
   const { removeListing } = useMarketplaceStore();
   const { addToast } = useToastStore();
   const { connection } = useConnection();
+  const wallet = useWallet();
 
   const [step, setStep] = useState<Step>("confirm");
   const [txSig, setTxSig] = useState("");
@@ -56,8 +58,10 @@ export function BuyModal({ isOpen, onClose, mintAddress, nftName, nftImage, pric
     try {
       const result = await executeBuy({
         connection,
+        wallet,
         buyerPublicKey: new PublicKey(solanaAddress),
         mintAddress,
+        listingAddress,
         priceSOL,
         sellerAddress,
         royaltyBps,

@@ -7,7 +7,7 @@ import { useWalletStore } from "@/store/walletStore";
 import { useMarketplaceStore } from "@/store/marketplaceStore";
 import { useToastStore } from "@/store/toastStore";
 import { createListing, calcPlatformFee, calcRoyaltyFee, calcSellerProceeds, DEFAULT_ROYALTY_BPS } from "@/lib/marketplace/solana";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { CheckCircle2, ExternalLink, Loader2, Tag } from "lucide-react";
 
@@ -33,6 +33,7 @@ export function ListingModal({ isOpen, onClose, mintAddress, nftName, nftImage, 
   const { addListing } = useMarketplaceStore();
   const { addToast } = useToastStore();
   const { connection } = useConnection();
+  const wallet = useWallet();
 
   const [step, setStep] = useState<Step>("form");
   const [price, setPrice] = useState("");
@@ -62,6 +63,7 @@ export function ListingModal({ isOpen, onClose, mintAddress, nftName, nftImage, 
     try {
       const result = await createListing({
         connection,
+        wallet,
         sellerPublicKey: new PublicKey(solanaAddress),
         mintAddress,
         priceSOL,
@@ -78,6 +80,7 @@ export function ListingModal({ isOpen, onClose, mintAddress, nftName, nftImage, 
         royaltyBps,
         expiresAt: Date.now() + duration * 86_400_000,
         txSignature: result.txSignature,
+        listingAddress: result.listingAddress,
         listedAt: Date.now(),
       });
       setTxSig(result.txSignature);

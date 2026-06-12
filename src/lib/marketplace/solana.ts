@@ -1,10 +1,18 @@
 import { Connection, PublicKey } from "@solana/web3.js";
+import type { Metaplex, WalletAdapter } from "@metaplex-foundation/js";
+
+// @metaplex-foundation/js is large (~400kB); load it on demand so it doesn't
+// inflate the initial bundle of every page that can render a listing/buy modal.
+const loadMetaplexSdk = () => import("@metaplex-foundation/js");
 
 export const PLATFORM_FEE_BPS = 250;   // 2.5%
 export const DEFAULT_ROYALTY_BPS = 500; // 5%
 
+const AUCTION_HOUSE_ADDRESS = process.env.NEXT_PUBLIC_AUCTION_HOUSE_ADDRESS;
+
 export interface ListingParams {
   connection: Connection;
+  wallet: WalletAdapter;
   sellerPublicKey: PublicKey;
   mintAddress: string;
   priceSOL: number;
@@ -14,8 +22,10 @@ export interface ListingParams {
 
 export interface BuyParams {
   connection: Connection;
+  wallet: WalletAdapter;
   buyerPublicKey: PublicKey;
   mintAddress: string;
+  listingAddress: string;
   priceSOL: number;
   sellerAddress: string;
   royaltyBps: number;
@@ -23,8 +33,10 @@ export interface BuyParams {
 
 export interface CancelListingParams {
   connection: Connection;
+  wallet: WalletAdapter;
   sellerPublicKey: PublicKey;
   mintAddress: string;
+  listingAddress: string;
 }
 
 export interface ListingResult {
@@ -52,48 +64,63 @@ export function calcSellerProceeds(priceSOL: number, royaltyBps: number): number
   return priceSOL - calcPlatformFee(priceSOL) - calcRoyaltyFee(priceSOL, royaltyBps);
 }
 
-export async function createListing(_params: ListingParams): Promise<ListingResult> {
-  void _params;
-  // TODO: Replace stub with Metaplex Auction House listing:
-  // const metaplex = Metaplex.make(params.connection).use(walletAdapterIdentity(wallet));
-  // const ah = await metaplex.auctionHouse().findByAddress({ address: AUCTION_HOUSE_ADDRESS });
-  // const { listing } = await metaplex.auctionHouse().list({
-  //   auctionHouse: ah,
-  //   mintAccount: new PublicKey(params.mintAddress),
-  //   price: sol(params.priceSOL),
-  // });
-  // return { txSignature: listing.receipt.toString(), listingAddress: listing.tradeStateAddress.toString() };
-  await new Promise((r) => setTimeout(r, 1600));
+// Loads the configured Auction House. Legacy Auction House listings don't carry an
+// on-chain expiry, so `durationDays` is tracked client-side only for display purposes.
+async function loadAuctionHouse(metaplex: Metaplex) {
+  if (!AUCTION_HOUSE_ADDRESS) {
+    throw new Error(
+      "Auction House is not configured. Set NEXT_PUBLIC_AUCTION_HOUSE_ADDRESS."
+    );
+  }
+  return metaplex.auctionHouse().findByAddress({ address: new PublicKey(AUCTION_HOUSE_ADDRESS) });
+}
+
+export async function createListing(params: ListingParams): Promise<ListingResult> {
+  const { connection, wallet, mintAddress, priceSOL } = params;
+  const { Metaplex, walletAdapterIdentity, sol } = await loadMetaplexSdk();
+  const metaplex = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
+  const auctionHouse = await loadAuctionHouse(metaplex);
+
+  const { listing, response } = await metaplex.auctionHouse().list({
+    auctionHouse,
+    mintAccount: new PublicKey(mintAddress),
+    price: sol(priceSOL),
+  });
+
   return {
-    txSignature: Array.from({ length: 88 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789"[Math.floor(Math.random() * 58)]).join(""),
-    listingAddress: Array.from({ length: 44 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789"[Math.floor(Math.random() * 58)]).join(""),
+    txSignature: response.signature,
+    listingAddress: listing.tradeStateAddress.toString(),
   };
 }
 
-export async function cancelListing(_params: CancelListingParams): Promise<CancelListingResult> {
-  void _params;
-  // TODO: Replace stub with Metaplex Auction House cancel:
-  // const metaplex = Metaplex.make(params.connection).use(walletAdapterIdentity(wallet));
-  // const ah = await metaplex.auctionHouse().findByAddress({ address: AUCTION_HOUSE_ADDRESS });
-  // const listing = await metaplex.auctionHouse().findListingByAddress({ address: listingTradeState });
-  // const { response } = await metaplex.auctionHouse().cancelListing({ auctionHouse: ah, listing });
-  // return { txSignature: response.signature };
-  await new Promise((r) => setTimeout(r, 1200));
-  return {
-    txSignature: Array.from({ length: 88 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789"[Math.floor(Math.random() * 58)]).join(""),
-  };
+export async function cancelListing(params: CancelListingParams): Promise<CancelListingResult> {
+  const { connection, wallet, listingAddress } = params;
+  const { Metaplex, walletAdapterIdentity } = await loadMetaplexSdk();
+  const metaplex = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
+  const auctionHouse = await loadAuctionHouse(metaplex);
+
+  const listing = await metaplex.auctionHouse().findListingByTradeState({
+    tradeStateAddress: new PublicKey(listingAddress),
+    auctionHouse,
+  });
+
+  const { response } = await metaplex.auctionHouse().cancelListing({ auctionHouse, listing });
+
+  return { txSignature: response.signature };
 }
 
-export async function executeBuy(_params: BuyParams): Promise<BuyResult> {
-  void _params;
-  // TODO: Replace stub with Metaplex Auction House buy + executeSale:
-  // const metaplex = Metaplex.make(params.connection).use(walletAdapterIdentity(wallet));
-  // const ah = await metaplex.auctionHouse().findByAddress({ address: AUCTION_HOUSE_ADDRESS });
-  // const listing = await metaplex.auctionHouse().findListingByAddress({ address: listingTradeState });
-  // const { purchase } = await metaplex.auctionHouse().buy({ auctionHouse: ah, listing });
-  // return { txSignature: purchase.response.signature };
-  await new Promise((r) => setTimeout(r, 1600));
-  return {
-    txSignature: Array.from({ length: 88 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789"[Math.floor(Math.random() * 58)]).join(""),
-  };
+export async function executeBuy(params: BuyParams): Promise<BuyResult> {
+  const { connection, wallet, listingAddress } = params;
+  const { Metaplex, walletAdapterIdentity } = await loadMetaplexSdk();
+  const metaplex = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
+  const auctionHouse = await loadAuctionHouse(metaplex);
+
+  const listing = await metaplex.auctionHouse().findListingByTradeState({
+    tradeStateAddress: new PublicKey(listingAddress),
+    auctionHouse,
+  });
+
+  const { response } = await metaplex.auctionHouse().buy({ auctionHouse, listing });
+
+  return { txSignature: response.signature };
 }
