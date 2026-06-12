@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { NFTCard } from "@/components/nft/NFTCard";
 import { Badge } from "@/components/ui/Badge";
@@ -10,11 +10,12 @@ import { Copy, Check, ExternalLink, Loader2 } from "lucide-react";
 import { useWalletStore } from "@/store/walletStore";
 import { useMarketplaceStore } from "@/store/marketplaceStore";
 import { useToastStore } from "@/store/toastStore";
-import { useProfileStore } from "@/store/profileStore";
+import { useProfileStore, type Profile } from "@/store/profileStore";
 import { cancelListing } from "@/lib/marketplace/solana";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
+import type { ApiResponse } from "@/types/api";
 
 const COLLECTED = [
   { id: 1, name: "Blue Robot #001", chain: "solana" as const, price: "0.5 SOL" },
@@ -53,21 +54,42 @@ export default function ProfilePage({ params }: { params: { address: string } })
   const [delistingMint, setDelistingMint] = useState<string | null>(null);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const { solanaAddress } = useWalletStore();
-  const { removeListing } = useMarketplaceStore();
+  const { removeListing, getListing } = useMarketplaceStore();
   const { addToast } = useToastStore();
   const { connection } = useConnection();
-  const { getProfile } = useProfileStore();
+  const wallet = useWallet();
+  const { getProfile, setProfile } = useProfileStore();
   const isOwnProfile = solanaAddress === address;
   const profile = getProfile(address);
 
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+    fetch(`/api/profile?address=${address}`)
+      .then((res) => res.json())
+      .then((json: ApiResponse<Profile>) => {
+        if (cancelled || !json.success || !json.data) return;
+        const { displayName, bio, avatarGradient, bannerGradient } = json.data;
+        setProfile(address, { displayName, bio, avatarGradient, bannerGradient });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [address, setProfile]);
+
   const handleDelist = async (item: { name: string; mintAddress: string }) => {
     if (!solanaAddress || delistingMint) return;
+    const listing = getListing(item.mintAddress);
+    if (!listing) return;
     setDelistingMint(item.mintAddress);
     try {
       await cancelListing({
         connection,
+        wallet,
         sellerPublicKey: new PublicKey(solanaAddress),
         mintAddress: item.mintAddress,
+        listingAddress: listing.listingAddress,
       });
       removeListing(item.mintAddress);
       addToast({ type: "success", message: `Listing for ${item.name} cancelled` });

@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { AVATAR_GRADIENTS, BANNER_GRADIENTS, useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
 import { validateProfile } from "@/lib/utils/validation";
 import { MAX_BIO_LENGTH } from "@/lib/utils/constants";
+import { buildAuthMessage } from "@/lib/auth/walletAuth";
+import { useWallet } from "@solana/wallet-adapter-react";
+import type { ApiResponse } from "@/types/api";
 
 interface Props {
   isOpen: boolean;
@@ -19,12 +22,14 @@ interface Props {
 export function EditProfileModal({ isOpen, onClose, address }: Props) {
   const { getProfile, setProfile } = useProfileStore();
   const { addToast } = useToastStore();
+  const wallet = useWallet();
 
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarGradient, setAvatarGradient] = useState<string>(AVATAR_GRADIENTS[0]);
   const [bannerGradient, setBannerGradient] = useState<string>(BANNER_GRADIENTS[0]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -36,15 +41,49 @@ export function EditProfileModal({ isOpen, onClose, address }: Props) {
     setErrors({});
   }, [isOpen, address, getProfile]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const validationErrors = validateProfile({ displayName, bio });
     if (validationErrors.length > 0) {
       setErrors(Object.fromEntries(validationErrors.map((e) => [e.field, e.message])));
       return;
     }
-    setProfile(address, { displayName: displayName.trim(), bio: bio.trim(), avatarGradient, bannerGradient });
-    addToast({ type: "success", message: "Profile updated" });
-    onClose();
+
+    if (!wallet.signMessage) {
+      addToast({ type: "error", message: "Your wallet does not support message signing" });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const timestamp = Date.now();
+      const message = buildAuthMessage("update profile", address, timestamp);
+      const signatureBytes = await wallet.signMessage(new TextEncoder().encode(message));
+      const signature = Buffer.from(signatureBytes).toString("base64");
+
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address,
+          signature,
+          timestamp,
+          displayName: displayName.trim(),
+          bio: bio.trim(),
+          avatarGradient,
+          bannerGradient,
+        }),
+      });
+      const json: ApiResponse<never> = await res.json();
+      if (!json.success) throw new Error(json.error ?? "Failed to update profile");
+
+      setProfile(address, { displayName: displayName.trim(), bio: bio.trim(), avatarGradient, bannerGradient });
+      addToast({ type: "success", message: "Profile updated" });
+      onClose();
+    } catch (err: unknown) {
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Failed to update profile. Please try again." });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -113,8 +152,11 @@ export function EditProfileModal({ isOpen, onClose, address }: Props) {
         </div>
 
         <div className="flex gap-3 pt-1">
-          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button variant="sol" className="flex-1" onClick={handleSave}>Save</Button>
+          <Button variant="outline" className="flex-1" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button variant="sol" className="flex-1 flex items-center justify-center gap-2" onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {saving ? "Saving…" : "Save"}
+          </Button>
         </div>
       </div>
     </Modal>
