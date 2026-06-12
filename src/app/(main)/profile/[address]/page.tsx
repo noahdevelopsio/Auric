@@ -9,9 +9,11 @@ import { Copy, Check, ExternalLink, Loader2 } from "lucide-react";
 import { useWalletStore } from "@/store/walletStore";
 import { useMarketplaceStore } from "@/store/marketplaceStore";
 import { useToastStore } from "@/store/toastStore";
+import { useProfileStore } from "@/store/profileStore";
 import { cancelListing } from "@/lib/marketplace/solana";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
+import { EditProfileModal } from "@/components/profile/EditProfileModal";
 
 const COLLECTED = [
   { id: 1, name: "Blue Robot #001", chain: "solana" as const, price: "0.5 SOL" },
@@ -44,11 +46,14 @@ export default function ProfilePage({ params }: { params: { address: string } })
   const [activeTab, setActiveTab] = useState<Tab>("Collected");
   const [copied, setCopied] = useState(false);
   const [delistingMint, setDelistingMint] = useState<string | null>(null);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
   const { solanaAddress } = useWalletStore();
   const { removeListing } = useMarketplaceStore();
   const { addToast } = useToastStore();
   const { connection } = useConnection();
+  const { getProfile } = useProfileStore();
   const isOwnProfile = solanaAddress === address;
+  const profile = getProfile(address);
 
   const handleDelist = async (item: { name: string; mintAddress: string }) => {
     if (!solanaAddress || delistingMint) return;
@@ -91,9 +96,12 @@ export default function ProfilePage({ params }: { params: { address: string } })
       {/* Profile Header */}
       <section className="rounded-3xl overflow-hidden border border-border-default bg-bg-surface mb-8">
         {/* Banner */}
-        <div className="h-44 md:h-56 bg-gradient-to-r from-btc-500/20 via-bg-elevated to-sol-purple/20 relative">
+        <div className={`h-44 md:h-56 bg-gradient-to-r ${profile.bannerGradient} relative`}>
           {isOwnProfile && (
-            <button className="absolute top-3 right-3 rounded-lg border border-border-default bg-bg-base/70 backdrop-blur-sm px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors">
+            <button
+              onClick={() => setEditProfileOpen(true)}
+              className="absolute top-3 right-3 rounded-lg border border-border-default bg-bg-base/70 backdrop-blur-sm px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors"
+            >
               Edit Banner
             </button>
           )}
@@ -101,10 +109,14 @@ export default function ProfilePage({ params }: { params: { address: string } })
 
         {/* Avatar + Info */}
         <div className="px-6 pb-6 -mt-10">
-          <div className="relative w-20 h-20 rounded-full border-4 border-bg-base bg-gradient-to-br from-btc-500 to-sol-purple flex items-center justify-center font-headings font-bold text-2xl text-bg-base shadow-lg">
+          <div className={`relative w-20 h-20 rounded-full border-4 border-bg-base bg-gradient-to-br ${profile.avatarGradient} flex items-center justify-center font-headings font-bold text-2xl text-bg-base shadow-lg`}>
             {address ? address.slice(0, 1).toUpperCase() : "U"}
             {isOwnProfile && (
-              <button className="absolute -bottom-1 -right-1 rounded-full bg-bg-elevated border border-border-default w-6 h-6 flex items-center justify-center text-xs text-text-secondary hover:text-text-primary transition-colors">
+              <button
+                onClick={() => setEditProfileOpen(true)}
+                aria-label="Edit avatar"
+                className="absolute -bottom-1 -right-1 rounded-full bg-bg-elevated border border-border-default w-6 h-6 flex items-center justify-center text-xs text-text-secondary hover:text-text-primary transition-colors"
+              >
                 ✎
               </button>
             )}
@@ -113,7 +125,7 @@ export default function ProfilePage({ params }: { params: { address: string } })
           <div className="mt-4 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
             <div>
               <h1 className="text-2xl font-headings font-bold text-text-primary">
-                {isOwnProfile ? "Your Profile" : "Creator Profile"}
+                {profile.displayName || (isOwnProfile ? "Your Profile" : "Creator Profile")}
               </h1>
               <button
                 onClick={handleCopy}
@@ -127,6 +139,9 @@ export default function ProfilePage({ params }: { params: { address: string } })
                   <Copy className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                 )}
               </button>
+              {profile.bio && (
+                <p className="text-sm text-text-secondary mt-2 max-w-md">{profile.bio}</p>
+              )}
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant="sol"><span className="flex items-center gap-1"><ChainIcon chain="solana" size={11} /> Solana</span></Badge>
                 <Badge variant="btc"><span className="flex items-center gap-1"><ChainIcon chain="bitcoin" size={11} /> Bitcoin</span></Badge>
@@ -153,7 +168,7 @@ export default function ProfilePage({ params }: { params: { address: string } })
 
           {isOwnProfile && (
             <div className="mt-4">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => setEditProfileOpen(true)}>
                 Edit Profile
               </Button>
             </div>
@@ -316,6 +331,14 @@ export default function ProfilePage({ params }: { params: { address: string } })
             ))}
           </div>
         </div>
+      )}
+
+      {isOwnProfile && (
+        <EditProfileModal
+          isOpen={editProfileOpen}
+          onClose={() => setEditProfileOpen(false)}
+          address={address}
+        />
       )}
     </div>
   );
