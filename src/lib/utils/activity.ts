@@ -14,13 +14,22 @@ export interface RecordActivityInput {
   txSignature?: string;
 }
 
+export interface BitcoinSigner {
+  address: string;
+  signMessage: (message: string) => Promise<string>;
+}
+
 const AUTH_ACTION = "record activity";
 
 // Fire-and-forget: activity logging is best-effort and must never block or
-// fail the calling mint/list/buy/cancel flow. Solana activity requires a
-// signed auth message (matching /api/profile and /api/collections) so the
-// public activity feed and platform stats can't be spoofed anonymously.
-export async function recordActivity(input: RecordActivityInput, wallet?: WalletContextState): Promise<void> {
+// fail the calling mint/list/buy/cancel flow. Both chains require a signed
+// auth message (matching /api/profile and /api/collections) so the public
+// activity feed and platform stats can't be spoofed anonymously.
+export async function recordActivity(
+  input: RecordActivityInput,
+  wallet?: WalletContextState,
+  btcSigner?: BitcoinSigner
+): Promise<void> {
   let auth: { address: string; signature: string; timestamp: number } | undefined;
 
   if (input.chain === "solana") {
@@ -31,6 +40,18 @@ export async function recordActivity(input: RecordActivityInput, wallet?: Wallet
       const message = buildAuthMessage(AUTH_ACTION, address, timestamp);
       const signatureBytes = await wallet.signMessage(new TextEncoder().encode(message));
       auth = { address, signature: Buffer.from(signatureBytes).toString("base64"), timestamp };
+    } catch {
+      return;
+    }
+  }
+
+  if (input.chain === "bitcoin") {
+    if (!btcSigner) return;
+    try {
+      const timestamp = Date.now();
+      const message = buildAuthMessage(AUTH_ACTION, btcSigner.address, timestamp);
+      const signature = await btcSigner.signMessage(message);
+      auth = { address: btcSigner.address, signature, timestamp };
     } catch {
       return;
     }

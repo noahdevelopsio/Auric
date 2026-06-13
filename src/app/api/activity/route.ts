@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { validateSolanaAddress, validateBtcAddress, validateName } from "@/lib/utils/validation";
 import { verifyWalletAuth } from "@/lib/auth/walletAuth";
+import { verifyBitcoinWalletAuth } from "@/lib/auth/bitcoinAuth";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import { ACTIVITY_PAGE_SIZE } from "@/lib/utils/constants";
 import type { ApiResponse, PaginatedResponse } from "@/types/api";
@@ -187,6 +188,34 @@ export async function POST(request: NextRequest) {
     }
 
     const authError = verifyWalletAuth({ action: AUTH_ACTION, address, signature, timestamp });
+    if (authError) {
+      return NextResponse.json<ApiResponse<never>>({ success: false, error: authError }, { status: 401 });
+    }
+
+    if (address !== fromWallet && address !== toWallet) {
+      return NextResponse.json<ApiResponse<never>>(
+        { success: false, error: "address must match fromWallet or toWallet" },
+        { status: 403 }
+      );
+    }
+  }
+
+  // Bitcoin activity must be signed by the wallet it's recorded against (BIP-322),
+  // closing the same spoofing gap as the Solana branch above.
+  if (chain === "bitcoin") {
+    if (!address || !signature || typeof timestamp !== "number") {
+      return NextResponse.json<ApiResponse<never>>(
+        { success: false, error: "address, signature, and timestamp are required" },
+        { status: 400 }
+      );
+    }
+
+    const addressError = validateBtcAddress(address);
+    if (addressError) {
+      return NextResponse.json<ApiResponse<never>>({ success: false, error: addressError }, { status: 400 });
+    }
+
+    const authError = verifyBitcoinWalletAuth({ action: AUTH_ACTION, address, signature, timestamp });
     if (authError) {
       return NextResponse.json<ApiResponse<never>>({ success: false, error: authError }, { status: 401 });
     }
