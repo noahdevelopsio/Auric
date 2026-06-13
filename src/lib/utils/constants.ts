@@ -1,13 +1,12 @@
-// Platform fee configuration — hardcoded per SECURITY.md
-export const PLATFORM_FEE_BPS = 200; // 2% — never from API
+// Platform fee configuration — flat fees charged at mint time
 export const SOLANA_PLATFORM_FEE = 0.01; // 0.01 SOL flat minting fee
 export const BTC_PLATFORM_FEE = 0.0005; // 0.0005 BTC flat inscription fee
 export const METAPLEX_FEE = 0.01; // Metaplex program fee in SOL
 export const ARWEAVE_STORAGE_COST_PER_MB = 0.002; // ~0.002 SOL per MB
 
-// Hardcoded platform fee wallets (replace with actual addresses before mainnet)
-export const PLATFORM_FEE_WALLET_SOLANA = null;
-export const PLATFORM_FEE_ADDRESS_BTC = 'YOUR_HARDCODED_BTC_ADDRESS_HERE';
+// Platform fee wallets — set via env. If unset, no platform fee is collected at mint time.
+export const PLATFORM_FEE_WALLET_SOLANA = process.env.NEXT_PUBLIC_SOL_PLATFORM_WALLET || null;
+export const PLATFORM_FEE_ADDRESS_BTC = process.env.NEXT_PUBLIC_BTC_PLATFORM_ADDRESS || null;
 
 // Chain IDs and networks
 export const SOLANA_NETWORK = 'mainnet-beta';

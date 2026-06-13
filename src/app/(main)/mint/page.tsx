@@ -2,12 +2,18 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { ChainIcon } from "@/components/ui/ChainIcon";
 import { useWalletStore } from "@/store/walletStore";
 import { useToastStore } from "@/store/toastStore";
+import { mintSolanaNft, payPlatformMintFee } from "@/lib/mint/solana";
+import { inscribeOnBitcoin, fileToBase64 } from "@/lib/mint/bitcoin";
+import { recordActivity } from "@/lib/utils/activity";
+import { SOLANA_PLATFORM_FEE, BTC_PLATFORM_FEE, METAPLEX_FEE } from "@/lib/utils/constants";
+import type { ApiResponse, UploadResponse, MetadataResponse } from "@/types/api";
 import {
   UploadCloud,
   X,
@@ -33,14 +39,14 @@ const BTC_PRICE_USD = 98000;
 
 function calcSolFees(fileBytes: number) {
   const storageSol = Math.max(0.002, (fileBytes / 1024 / 1024) * 0.001);
-  return { network: 0.000005, metaplex: 0.01, platform: 0.01, storage: storageSol };
+  return { network: 0.000005, metaplex: METAPLEX_FEE, platform: SOLANA_PLATFORM_FEE, storage: storageSol };
 }
 
 function calcBtcFees(fileBytes: number, feeRate: FeeRate) {
   const satsPerVb = FEE_RATES[feeRate].satsPerVb;
   const inscriptionBytes = fileBytes + 500;
   const networkBtc = (inscriptionBytes * satsPerVb) / 1e8;
-  return { network: networkBtc, platform: 0.0005 };
+  return { network: networkBtc, platform: BTC_PLATFORM_FEE };
 }
 
 export default function MintPage() {
@@ -58,10 +64,13 @@ export default function MintPage() {
   const [minting, setMinting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [txSignature, setTxSignature] = useState("");
+  const [mintAddress, setMintAddress] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { solanaAddress, btcAddress, openModal } = useWalletStore();
   const { addToast } = useToastStore();
+  const { connection } = useConnection();
+  const solanaWallet = useWallet();
   const isConnected = !!(solanaAddress || btcAddress);
 
   const maxBytes = targetChain === "solana" ? 50 * 1024 * 1024 : 4 * 1024 * 1024;
@@ -145,15 +154,95 @@ export default function MintPage() {
     }
 
     setMinting(true);
-    addToast({ type: "info", message: `${targetChain === "solana" ? "Minting" : "Inscribing"}…` });
 
-    await new Promise((r) => setTimeout(r, 2000));
+    try {
+      if (targetChain === "solana") {
+        if (!solanaWallet.publicKey) {
+          addToast({ type: "error", message: "Connect a Solana wallet to mint." });
+          return;
+        }
 
-    const mockTx = `${Math.random().toString(36).slice(2, 12)}${Math.random().toString(36).slice(2, 12)}`;
-    setTxSignature(mockTx);
-    setMinting(false);
-    setSuccess(true);
-    addToast({ type: "success", message: `${targetChain === "solana" ? "NFT minted" : "Inscription confirmed"} successfully!` });
+        addToast({ type: "info", message: "Uploading file…" });
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("chain", "solana");
+        const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+        const uploadJson: ApiResponse<UploadResponse> = await uploadRes.json();
+        if (!uploadJson.success || !uploadJson.data) throw new Error(uploadJson.error ?? "Upload failed");
+
+        addToast({ type: "info", message: "Preparing metadata…" });
+        const metadataRes = await fetch("/api/metadata", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            description: description || undefined,
+            image: uploadJson.data.url,
+            attributes: attributes
+              .filter((a) => a.traitType && a.value)
+              .map((a) => ({ trait_type: a.traitType, value: a.value })),
+            contentType: file.type,
+            sellerFeeBasisPoints: royalties * 100,
+          }),
+        });
+        const metadataJson: ApiResponse<MetadataResponse> = await metadataRes.json();
+        if (!metadataJson.success || !metadataJson.data) throw new Error(metadataJson.error ?? "Failed to prepare metadata");
+
+        addToast({ type: "info", message: "Minting NFT…" });
+        const result = await mintSolanaNft({
+          connection,
+          wallet: solanaWallet,
+          name,
+          metadataUri: metadataJson.data.metadata_url,
+          sellerFeeBasisPoints: royalties * 100,
+        });
+
+        try {
+          await payPlatformMintFee(connection, solanaWallet, solanaWallet.publicKey);
+        } catch {
+          // Platform fee is best-effort — a failed fee transfer shouldn't block a successful mint.
+        }
+
+        setMintAddress(result.mintAddress);
+        setTxSignature(result.txSignature);
+        setSuccess(true);
+        addToast({ type: "success", message: "NFT minted successfully!" });
+        recordActivity({
+          type: "mint",
+          chain: "solana",
+          nftId: result.mintAddress,
+          nftName: name,
+          nftImage: uploadJson.data.url,
+          toWallet: solanaWallet.publicKey.toBase58(),
+          txSignature: result.txSignature,
+        }, solanaWallet);
+      } else {
+        addToast({ type: "info", message: "Inscribing…" });
+        const content = await fileToBase64(file);
+        const result = await inscribeOnBitcoin({
+          contentType: file.type,
+          content,
+          feeRateSatsPerVb: FEE_RATES[feeRate].satsPerVb,
+        });
+
+        setTxSignature(result.txId);
+        setMintAddress(`${result.txId}i0`);
+        setSuccess(true);
+        addToast({ type: "success", message: "Inscription submitted successfully!" });
+        recordActivity({
+          type: "inscribe",
+          chain: "bitcoin",
+          nftId: `${result.txId}i0`,
+          nftName: name,
+          toWallet: btcAddress ?? undefined,
+          txSignature: result.txId,
+        });
+      }
+    } catch (err: unknown) {
+      addToast({ type: "error", message: err instanceof Error ? err.message : `${targetChain === "solana" ? "Minting" : "Inscribing"} failed. Please try again.` });
+    } finally {
+      setMinting(false);
+    }
   };
 
   useEffect(() => {
@@ -205,7 +294,7 @@ export default function MintPage() {
           </div>
 
           <a
-            href={`https://${targetChain === "solana" ? "explorer.solana.com/tx/" : "ordinals.com/inscription/"}${txSignature}`}
+            href={`https://${targetChain === "solana" ? "explorer.solana.com/tx/" + txSignature : "ordinals.com/inscription/" + mintAddress}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors"
@@ -218,7 +307,7 @@ export default function MintPage() {
               variant={targetChain === "solana" ? "sol" : "btc"}
               size="lg"
               className="flex-1"
-              onClick={() => router.push(`/nft/${targetChain}/001`)}
+              onClick={() => router.push(`/nft/${targetChain}/${mintAddress}`)}
             >
               View Your NFT
             </Button>
@@ -235,6 +324,7 @@ export default function MintPage() {
                 setDescription("");
                 setAttributes([]);
                 setTxSignature("");
+                setMintAddress("");
               }}
             >
               Mint Another
