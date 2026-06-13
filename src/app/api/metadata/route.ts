@@ -4,10 +4,14 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { validateName, validateDescription, validateAttributes } from "@/lib/utils/validation";
 import { buildNftMetadata, type BuiltNftMetadata } from "@/lib/metadata/build";
 import { SUPABASE_BUCKETS } from "@/lib/utils/constants";
+import { rateLimit } from "@/lib/utils/rateLimit";
 import type { ApiResponse, MetadataResponse } from "@/types/api";
 import type { NFTAttribute } from "@/types/nft";
 
 export async function POST(request: NextRequest) {
+  const limited = await rateLimit(request, "metadata");
+  if (limited) return limited;
+
   let body: {
     name?: string;
     description?: string;

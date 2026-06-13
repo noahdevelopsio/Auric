@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { validateSolanaAddress, validateProfile } from "@/lib/utils/validation";
 import { verifyWalletAuth } from "@/lib/auth/walletAuth";
 import { AVATAR_GRADIENTS, BANNER_GRADIENTS, DEFAULT_PROFILE } from "@/store/profileStore";
+import { rateLimit } from "@/lib/utils/rateLimit";
 import type { ApiResponse } from "@/types/api";
 
 const AUTH_ACTION = "update profile";
@@ -33,6 +34,9 @@ function toDto(address: string, row: ProfileRow | null): ProfileDto {
 }
 
 export async function GET(request: NextRequest) {
+  const limited = await rateLimit(request, "profile");
+  if (limited) return limited;
+
   const address = request.nextUrl.searchParams.get("address");
   if (!address) {
     return NextResponse.json<ApiResponse<never>>(
@@ -61,6 +65,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const limited = await rateLimit(request, "profile");
+  if (limited) return limited;
+
   let body: {
     address?: string;
     signature?: string;

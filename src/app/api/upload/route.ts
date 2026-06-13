@@ -3,10 +3,14 @@ import { randomUUID } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { validateFileType, validateFileSize } from "@/lib/utils/validation";
 import { SUPABASE_BUCKETS } from "@/lib/utils/constants";
+import { rateLimit } from "@/lib/utils/rateLimit";
 import type { ApiResponse, UploadResponse } from "@/types/api";
 import type { ChainType } from "@/types/nft";
 
 export async function POST(request: NextRequest) {
+  const limited = await rateLimit(request, "upload");
+  if (limited) return limited;
+
   let formData: FormData;
   try {
     formData = await request.formData();

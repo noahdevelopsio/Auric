@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { validateBtcAddress } from "@/lib/utils/validation";
 import { prepareInscriptionPayload } from "@/lib/bitcoin/inscription";
 import { BTC_FEE_RATES } from "@/lib/utils/constants";
+import { rateLimit } from "@/lib/utils/rateLimit";
 import type { ApiResponse } from "@/types/api";
 import type { OrdinalsAddressInfo, OrdinalsInscription } from "@/types/ordinals";
 
@@ -39,24 +40,30 @@ function toInscription(raw: HiroInscription): OrdinalsInscription {
 }
 
 export async function GET(request: NextRequest) {
+  const limited = await rateLimit(request, "ordinals");
+  if (limited) return limited;
+
   const { searchParams } = request.nextUrl;
   const address = searchParams.get("address");
+  const genesisAddress = searchParams.get("genesis_address");
   const id = searchParams.get("id");
 
-  if (!address && !id) {
+  if (!address && !genesisAddress && !id) {
     return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: "Provide an address or id query parameter" },
+      { success: false, error: "Provide an address, genesis_address, or id query parameter" },
       { status: 400 }
     );
   }
 
-  if (address) {
-    const addressError = validateBtcAddress(address);
+  if (address || genesisAddress) {
+    const lookupAddress = (address ?? genesisAddress) as string;
+    const addressError = validateBtcAddress(lookupAddress);
     if (addressError) {
       return NextResponse.json<ApiResponse<never>>({ success: false, error: addressError }, { status: 400 });
     }
 
-    const res = await fetch(`${HIRO_API_URL}/ordinals/v1/inscriptions?address=${encodeURIComponent(address)}`);
+    const queryParam = address ? `address=${encodeURIComponent(address)}` : `genesis_address=${encodeURIComponent(genesisAddress as string)}`;
+    const res = await fetch(`${HIRO_API_URL}/ordinals/v1/inscriptions?${queryParam}`);
     if (!res.ok) {
       return NextResponse.json<ApiResponse<never>>(
         { success: false, error: `Ordinals lookup failed with status ${res.status}` },
@@ -68,7 +75,7 @@ export async function GET(request: NextRequest) {
     const inscriptions = json.results.map(toInscription);
 
     const info: OrdinalsAddressInfo = {
-      address,
+      address: lookupAddress,
       inscriptions,
       total_inscriptions: json.total,
       total_size: inscriptions.reduce((sum, i) => sum + i.content_length, 0),
@@ -90,6 +97,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = await rateLimit(request, "ordinals");
+  if (limited) return limited;
+
   let body: {
     contentType?: string;
     contentSizeBytes?: number;

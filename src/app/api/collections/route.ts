@@ -4,6 +4,7 @@ import { validateSolanaAddress, validateName, validateDescription, validateRoyal
 import { verifyWalletAuth } from "@/lib/auth/walletAuth";
 import { slugify } from "@/lib/utils/slug";
 import { PAGE_SIZE } from "@/lib/utils/constants";
+import { rateLimit } from "@/lib/utils/rateLimit";
 import type { ApiResponse, PaginatedResponse } from "@/types/api";
 import type { Collection, ChainType } from "@/types/nft";
 
@@ -52,8 +53,13 @@ function toCollection(row: CollectionRow): Collection {
 }
 
 export async function GET(request: NextRequest) {
+  const limited = await rateLimit(request, "collections");
+  if (limited) return limited;
+
   const { searchParams } = request.nextUrl;
   const chain = searchParams.get("chain");
+  const slug = searchParams.get("slug");
+  const search = searchParams.get("search");
 
   if (chain && chain !== "solana" && chain !== "bitcoin") {
     return NextResponse.json<ApiResponse<never>>(
@@ -75,6 +81,8 @@ export async function GET(request: NextRequest) {
     .range(from, to);
 
   if (chain) query = query.eq("chain", chain);
+  if (slug) query = query.eq("slug", slug);
+  if (search) query = query.ilike("name", `%${search}%`);
 
   const { data, error, count } = await query;
   if (error) {
@@ -92,6 +100,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = await rateLimit(request, "collections");
+  if (limited) return limited;
+
   let body: {
     address?: string;
     signature?: string;
