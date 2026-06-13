@@ -33,6 +33,13 @@ export interface FeeEstimateResponse {
   usd_estimate: number;
 }
 
+export interface PlatformStats {
+  collections: number;
+  nftsMinted: number;
+  creators: number;
+  totalVolumeSol: number;
+}
+
 export interface OrdinalsInscriptionResponse {
   inscription_id: string;
   status: 'pending' | 'confirmed' | 'failed';

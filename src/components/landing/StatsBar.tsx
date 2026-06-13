@@ -1,20 +1,35 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import type { ApiResponse, PlatformStats } from "@/types/api";
 
 export function StatsBar() {
-  const targets = { nfts: 12430, volume: 890, creators: 567, collections: 2345 };
+  const [stats, setStats] = useState<PlatformStats | null>(null);
   const [values, setValues] = useState({ nfts: 0, volume: 0, creators: 0, collections: 0 });
   const [animated, setAnimated] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    fetch("/api/stats")
+      .then((res) => res.json())
+      .then((json: ApiResponse<PlatformStats>) => {
+        if (!cancelled && json.success && json.data) setStats(json.data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!stats || animated) return;
     const el = ref.current;
     if (!el) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !animated) {
+        if (entries[0].isIntersecting) {
           setAnimated(true);
           observer.disconnect();
         }
@@ -23,13 +38,19 @@ export function StatsBar() {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [animated]);
+  }, [stats, animated]);
 
   useEffect(() => {
-    if (!animated) return;
+    if (!animated || !stats) return;
     let raf: number;
     const start = Date.now();
     const duration = 900;
+    const targets = {
+      nfts: stats.nftsMinted,
+      volume: stats.totalVolumeSol,
+      creators: stats.creators,
+      collections: stats.collections,
+    };
     const tick = () => {
       const t = Math.min(1, (Date.now() - start) / duration);
       setValues({
@@ -42,7 +63,12 @@ export function StatsBar() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [animated]);
+  }, [animated, stats]);
+
+  if (!stats) return null;
+
+  const isEmpty = stats.nftsMinted === 0 && stats.totalVolumeSol === 0 && stats.creators === 0 && stats.collections === 0;
+  if (isEmpty) return null;
 
   return (
     <div ref={ref} className="w-full bg-bg-surface border-y border-border-subtle py-4">
