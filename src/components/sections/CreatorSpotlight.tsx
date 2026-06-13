@@ -1,17 +1,62 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { SolanaIcon, BitcoinIcon } from "@/components/ui/ChainIcon";
+import { shortenAddress, addressToGradient, formatNumber } from "@/lib/utils/format";
+import type { Collection, ChainType } from "@/types/nft";
+import type { PaginatedResponse } from "@/types/api";
 
-const creators = [
-  { id: 1, name: "PixelForge", collections: "42 NFTs", volume: "12 SOL" },
-  { id: 2, name: "Ordinal Oak", collections: "28 NFTs", volume: "6 BTC" },
-  { id: 3, name: "Nebula Labs", collections: "17 NFTs", volume: "4 SOL" },
-  { id: 4, name: "ChainBloom", collections: "33 NFTs", volume: "9 SOL" },
-  { id: 5, name: "MetaMint", collections: "19 NFTs", volume: "2 BTC" },
-  { id: 6, name: "HashHouse", collections: "11 NFTs", volume: "3 SOL" },
-];
+interface CreatorSummary {
+  wallet: string;
+  itemCount: number;
+  collectionCount: number;
+  chains: Set<ChainType>;
+}
 
 export function CreatorSpotlight() {
+  const [creators, setCreators] = useState<CreatorSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/collections?limit=100")
+      .then((res) => res.json())
+      .then((json: PaginatedResponse<Collection>) => {
+        if (cancelled || !json.success || !json.data) return;
+
+        const byWallet = new Map<string, CreatorSummary>();
+        for (const c of json.data) {
+          const existing = byWallet.get(c.creator_wallet);
+          if (existing) {
+            existing.itemCount += c.item_count;
+            existing.collectionCount += 1;
+            existing.chains.add(c.chain);
+          } else {
+            byWallet.set(c.creator_wallet, {
+              wallet: c.creator_wallet,
+              itemCount: c.item_count,
+              collectionCount: 1,
+              chains: new Set([c.chain]),
+            });
+          }
+        }
+
+        const top = Array.from(byWallet.values())
+          .sort((a, b) => b.itemCount - a.itemCount)
+          .slice(0, 6);
+        setCreators(top);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading || creators.length === 0) return null;
+
   return (
     <section className="py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -26,21 +71,34 @@ export function CreatorSpotlight() {
 
         <div className="creator-spotlight-scroll grid grid-flow-col auto-cols-[180px] gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
           {creators.map((creator) => (
-            <article key={creator.id} className="snap-start rounded-xl border border-border-subtle bg-surface p-5 text-center hover:shadow-md transition-shadow">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-btc-500/30 to-sol-purple/30 mx-auto mb-3 flex items-center justify-center font-headings font-bold">
-                {creator.name.slice(0, 1)}
+            <a
+              key={creator.wallet}
+              href={`/profile/${creator.wallet}`}
+              className="snap-start rounded-xl border border-border-subtle bg-surface p-5 text-center hover:shadow-md transition-shadow"
+            >
+              <div
+                className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center font-headings font-bold text-white"
+                style={{ background: addressToGradient(creator.wallet) }}
+              >
+                {creator.wallet.slice(0, 1).toUpperCase()}
               </div>
-              <h3 className="font-medium text-sm">{creator.name}</h3>
+              <h3 className="font-medium text-sm font-mono">{shortenAddress(creator.wallet)}</h3>
               <div className="mt-2 flex justify-center gap-1 text-[11px]">
-                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-bg-elevated border border-border-subtle">
-                  <SolanaIcon size={12} /> SOL
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-bg-elevated border border-border-subtle">
-                  <BitcoinIcon size={12} /> BTC
-                </span>
+                {creator.chains.has("solana") && (
+                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-bg-elevated border border-border-subtle">
+                    <SolanaIcon size={12} /> SOL
+                  </span>
+                )}
+                {creator.chains.has("bitcoin") && (
+                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-bg-elevated border border-border-subtle">
+                    <BitcoinIcon size={12} /> BTC
+                  </span>
+                )}
               </div>
-              <p className="mt-2 text-xs text-text-tertiary">{creator.collections} · {creator.volume}</p>
-            </article>
+              <p className="mt-2 text-xs text-text-tertiary">
+                {formatNumber(creator.itemCount)} items · {creator.collectionCount} {creator.collectionCount === 1 ? "collection" : "collections"}
+              </p>
+            </a>
           ))}
         </div>
         <style jsx>{`
