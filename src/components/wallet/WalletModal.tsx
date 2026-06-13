@@ -1,13 +1,35 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { useWalletStore } from "@/store/walletStore";
 import { Button } from "@/components/ui/Button";
 import { Wallet, Loader2, CheckCircle2, Lock } from "lucide-react";
 import { WalletIcon, SolanaChainIcon, BitcoinChainIcon } from "@/components/wallet/WalletIcons";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletReadyState, type WalletName } from "@solana/wallet-adapter-base";
 import { connectBitcoinWallet } from "@/lib/bitcoin/wallet";
+import type { ApiResponse } from "@/types/api";
+import type { Profile } from "@/store/profileStore";
+
+// New wallet connections (no display name set yet) land on their profile
+// page with the edit modal open, so they can set up their profile right away.
+async function redirectIfNewProfile(address: string, router: ReturnType<typeof useRouter>) {
+  try {
+    const res = await fetch(`/api/profile?address=${address}`);
+    const json: ApiResponse<Profile> = await res.json();
+    if (json.success && json.data && !json.data.displayName) {
+      router.push(`/profile/${address}?setup=1`);
+    }
+  } catch {}
+}
+
+const SOLANA_WALLET_NAMES: Record<string, WalletName> = {
+  phantom: "Phantom" as WalletName,
+  backpack: "Backpack" as WalletName,
+  solflare: "Solflare" as WalletName,
+};
 
 interface WalletOption {
   id: string;
@@ -68,6 +90,7 @@ const BITCOIN_WALLETS: Omit<WalletOption, "detected">[] = [
 ];
 
 export const WalletModal: React.FC = () => {
+  const router = useRouter();
   const {
     isModalOpen,
     closeModal,
@@ -81,33 +104,65 @@ export const WalletModal: React.FC = () => {
   const solanaWallet = useWallet();
   const detected = useDetectedWallets();
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [pendingSolanaWallet, setPendingSolanaWallet] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  const handleSolanaConnect = async (walletId: string) => {
+  const handleSolanaConnect = (walletId: string) => {
     setError("");
+    const name = SOLANA_WALLET_NAMES[walletId];
+    const target = solanaWallet.wallets.find((w) => w.adapter.name === name);
+    if (!target || target.readyState === WalletReadyState.NotDetected || target.readyState === WalletReadyState.Unsupported) {
+      const label = SOLANA_WALLETS.find((w) => w.id === walletId)?.name ?? "Wallet";
+      setError(`${label} not detected. Install the extension and refresh the page.`);
+      return;
+    }
     setConnecting(walletId);
-    try {
-      if (!solanaWallet.connected) {
-        await solanaWallet.connect();
-      }
+    setPendingSolanaWallet(walletId);
+    solanaWallet.select(name);
+  };
+
+  // Selecting a wallet adapter is async (state update), so connect once the
+  // context's `wallet` actually matches the one the user picked.
+  useEffect(() => {
+    if (!pendingSolanaWallet) return;
+    const name = SOLANA_WALLET_NAMES[pendingSolanaWallet];
+    if (!solanaWallet.wallet || solanaWallet.wallet.adapter.name !== name) return;
+
+    if (solanaWallet.connected) {
       const pub = solanaWallet.publicKey?.toBase58() ?? null;
       if (pub) {
         setSolanaAddress(pub);
         closeModal();
+        redirectIfNewProfile(pub, router);
       } else {
         setError("Could not retrieve public key. Make sure your wallet is unlocked.");
       }
-    } catch (err: unknown) {
+      setConnecting(null);
+      setPendingSolanaWallet(null);
+      return;
+    }
+
+    if (solanaWallet.connecting) return;
+
+    let cancelled = false;
+    solanaWallet.connect().catch((err: unknown) => {
+      if (cancelled) return;
       const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("User rejected")) {
+      if (msg.includes("User rejected") || msg.includes("closed")) {
         setError("Connection rejected.");
+      } else if (msg.includes("Unexpected error")) {
+        setError("Wallet extension didn't respond. Reload the page and try again.");
       } else {
         setError(msg || "Connection failed.");
       }
-    } finally {
       setConnecting(null);
-    }
-  };
+      setPendingSolanaWallet(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSolanaWallet, solanaWallet.wallet, solanaWallet.connected, solanaWallet.connecting, solanaWallet.publicKey]);
 
   const handleBitcoinConnect = async (walletId: string) => {
     setError("");
@@ -131,6 +186,7 @@ export const WalletModal: React.FC = () => {
   const handleClose = () => {
     setError("");
     setConnecting(null);
+    setPendingSolanaWallet(null);
     closeModal();
   };
 

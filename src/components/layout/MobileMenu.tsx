@@ -2,12 +2,17 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { X, MessageCircleMore } from "lucide-react";
+import { X, MessageCircleMore, LogOut } from "lucide-react";
 import { AuricGemLogo } from "@/components/ui/AuricLogo";
+import { useWalletStore } from "@/store/walletStore";
+import { useHasMounted } from "@/hooks/useHasMounted";
 
 export function MobileMenu({ open, onClose, onOpenWallet }: { open: boolean; onClose: () => void; onOpenWallet: () => void }) {
   const [visible, setVisible] = useState(open);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const { solanaAddress, btcAddress, disconnectAll } = useWalletStore();
+  const hasMounted = useHasMounted();
+  const address = hasMounted ? (solanaAddress || btcAddress) : null;
 
   useEffect(() => {
     if (open) setVisible(true);
@@ -66,9 +71,34 @@ export function MobileMenu({ open, onClose, onOpenWallet }: { open: boolean; onC
         </nav>
 
         <div className="mt-auto pt-6">
-          <button onClick={() => { onOpenWallet(); onClose(); }} className="flex h-12 w-full items-center justify-center rounded-md bg-text-primary px-4 font-medium text-bg-base transition-colors hover:bg-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong">
-            Connect Wallet
-          </button>
+          {address ? (
+            <div className="space-y-3">
+              <div className="rounded-md border border-border-default bg-bg-surface px-4 py-3">
+                <div className="font-mono text-sm text-text-primary truncate">{`${address.slice(0, 4)}...${address.slice(-4)}`}</div>
+                <div className="flex items-center gap-2 mt-2">
+                  {solanaAddress && <span className="w-2 h-2 rounded-full bg-sol-500" aria-label="Solana connected" />}
+                  {btcAddress && <span className="w-2 h-2 rounded-full bg-btc-500" aria-label="Bitcoin connected" />}
+                </div>
+              </div>
+              <Link
+                href={`/profile/${address}`}
+                onClick={onClose}
+                className="flex h-12 w-full items-center justify-center rounded-md border border-border-default px-4 font-medium text-text-primary transition-colors hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+              >
+                View Profile
+              </Link>
+              <button
+                onClick={() => { disconnectAll(); onClose(); }}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-md px-4 font-medium text-semantic-error transition-colors hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+              >
+                <LogOut className="h-4 w-4" /> Disconnect
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => { onOpenWallet(); onClose(); }} className="flex h-12 w-full items-center justify-center rounded-md bg-text-primary px-4 font-medium text-bg-base transition-colors hover:bg-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong">
+              Connect Wallet
+            </button>
+          )}
 
           <div className="mt-6 flex items-center justify-center gap-4 border-t border-border-subtle pt-6">
             <a href="#" aria-label="Twitter / X" className="inline-flex h-11 w-11 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-elevated hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong">

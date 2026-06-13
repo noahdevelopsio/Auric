@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { AuricGemLogo } from "@/components/ui/AuricLogo";
+import { ChainIcon } from "@/components/ui/ChainIcon";
 import { useWalletStore } from "@/store/walletStore";
 import { ArrowLeft, ChevronDown, Menu, Search, Wallet, Bitcoin, CircleDot } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
@@ -10,6 +11,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { WalletModal } from "@/components/wallet/WalletModal";
 import MobileMenu from "./MobileMenu";
 import WalletDropdown from "./WalletDropdown";
+import { validateSolanaAddress, validateBtcAddress } from "@/lib/utils/validation";
+import { SEARCH_DEBOUNCE_MS } from "@/lib/utils/constants";
+import { useHasMounted } from "@/hooks/useHasMounted";
+import type { Collection } from "@/types/nft";
+import type { PaginatedResponse } from "@/types/api";
 
 export function Navbar() {
   const { solanaAddress, btcAddress, activeChain, openModal } = useWalletStore();
@@ -20,9 +26,10 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const hasMounted = useHasMounted();
 
-  const isConnected = !!solanaAddress || !!btcAddress;
-  const address = activeChain === "solana" ? solanaAddress : btcAddress;
+  const isConnected = hasMounted && (!!solanaAddress || !!btcAddress);
+  const address = hasMounted ? (activeChain === "solana" ? solanaAddress : btcAddress) : null;
 
   const shortenAddress = (address: string | null | undefined) => {
     if (!address) return "";
@@ -61,24 +68,41 @@ export function Navbar() {
     []
   );
 
-  // mock data for search
-  const mockNFTs = [
-    { id: 'n1', title: 'Blue Robot #001', collection: 'Robots', chain: 'solana' as const, tokenId: '001' },
-    { id: 'n2', title: 'Sol Bloom', collection: 'Solana Flowers', chain: 'solana' as const, tokenId: '011' },
-    { id: 'n3', title: 'Ordinal Ape', collection: 'Ordinals Club', chain: 'bitcoin' as const, tokenId: '018' }
-  ];
-  const mockCollections = [
-    { id: 'c1', title: 'Robots', slug: 'robots' },
-    { id: 'c2', title: 'Solana Flowers', slug: 'solana-flowers' }
-  ];
-  const mockWallets = [
-    { id: 'w1', title: '7xKp...3mZq', address: '7xKpBnZq3mRm7fYd3mZqABCDEF123456789abcdef12' },
-    { id: 'w2', title: '4nFz...8PbT', address: '4nFzCQxmRm7fYd3mAbCdEf123456789abcdefghPbT' }
-  ];
+  const [collectionResults, setCollectionResults] = useState<Collection[]>([]);
+  const [searching, setSearching] = useState(false);
 
-  const nftResults = mockNFTs.filter(n => n.title.toLowerCase().includes(searchQuery.toLowerCase()));
-  const collectionResults = mockCollections.filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase()));
-  const walletResults = mockWallets.filter(w => w.title.toLowerCase().includes(searchQuery.toLowerCase()) || w.title.includes(searchQuery));
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setCollectionResults([]);
+      setSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(() => {
+      fetch(`/api/collections?search=${encodeURIComponent(query)}&limit=5`)
+        .then((res) => res.json())
+        .then((json: PaginatedResponse<Collection>) => {
+          if (cancelled) return;
+          setCollectionResults(json.success && json.data ? json.data : []);
+        })
+        .catch(() => {
+          if (!cancelled) setCollectionResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
+
+  const trimmedQuery = searchQuery.trim();
+  const walletMatch = trimmedQuery.length > 0 && (!validateSolanaAddress(trimmedQuery) || !validateBtcAddress(trimmedQuery));
+  const hasResults = collectionResults.length > 0 || walletMatch;
   const showMobileSearch = searchOpen && !mobileOpen;
 
   const goToSearchResult = (href: string) => {
@@ -175,23 +199,6 @@ export function Navbar() {
                     <div role="listbox" aria-label="Search results" className="absolute left-0 top-full z-50 mt-2 w-[480px] overflow-hidden rounded-lg border border-border-default bg-bg-surface shadow-xl">
                       <div className="border-b border-border-subtle px-4 py-3 text-xs uppercase tracking-[0.08em] text-text-tertiary">Results</div>
                       <div className="p-2">
-                        {nftResults.length > 0 && (
-                          <div className="mb-3">
-                            <div className="px-2 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">NFTs</div>
-                            {nftResults.map((n) => (
-                              <button
-                                key={n.id}
-                                role="option"
-                                onClick={() => goToSearchResult(`/nft/${n.chain}/${n.tokenId}`)}
-                                className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-elevated"
-                              >
-                                <span>{n.title}</span>
-                                <span className="text-xs text-text-tertiary">{n.collection}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
                         {collectionResults.length > 0 && (
                           <div className="mb-3">
                             <div className="px-2 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Collections</div>
@@ -200,28 +207,30 @@ export function Navbar() {
                                 key={c.id}
                                 role="option"
                                 onClick={() => goToSearchResult(`/collection/${c.slug}`)}
-                                className="w-full rounded-md px-3 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-elevated"
+                                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-elevated"
                               >
-                                {c.title}
+                                <ChainIcon chain={c.chain} size={12} />
+                                {c.name}
                               </button>
                             ))}
                           </div>
                         )}
 
-                        {walletResults.length > 0 && (
+                        {walletMatch && (
                           <div>
-                            <div className="px-2 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Wallets</div>
-                            {walletResults.map((w) => (
-                              <button
-                                key={w.id}
-                                role="option"
-                                onClick={() => goToSearchResult(`/profile/${w.address}`)}
-                                className="w-full rounded-md px-3 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-elevated"
-                              >
-                                {w.title}
-                              </button>
-                            ))}
+                            <div className="px-2 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Wallet</div>
+                            <button
+                              role="option"
+                              onClick={() => goToSearchResult(`/profile/${trimmedQuery}`)}
+                              className="w-full rounded-md px-3 py-2 text-left font-mono text-sm text-text-primary transition-colors hover:bg-bg-elevated"
+                            >
+                              {trimmedQuery}
+                            </button>
                           </div>
+                        )}
+
+                        {!hasResults && !searching && (
+                          <div className="px-3 py-6 text-center text-sm text-text-tertiary">No results found</div>
                         )}
                       </div>
                     </div>

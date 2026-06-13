@@ -28,7 +28,12 @@ export function WalletDropdown({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener("mousedown", handle);
   }, [onClose]);
 
+  const isFirstRender = useRef(true);
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     onClose();
   }, [pathname, onClose]);
 

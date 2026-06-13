@@ -5,7 +5,8 @@ import type { Metaplex, WalletAdapter } from "@metaplex-foundation/js";
 // inflate the initial bundle of every page that can render a listing/buy modal.
 const loadMetaplexSdk = () => import("@metaplex-foundation/js");
 
-export const PLATFORM_FEE_BPS = 250;   // 2.5%
+// Marketplace sale fee, in basis points. Configurable via env; defaults to 2.5%.
+export const PLATFORM_FEE_BPS = Number(process.env.NEXT_PUBLIC_PLATFORM_FEE_BPS) || 250;
 export const DEFAULT_ROYALTY_BPS = 500; // 5%
 
 const AUCTION_HOUSE_ADDRESS = process.env.NEXT_PUBLIC_AUCTION_HOUSE_ADDRESS;
