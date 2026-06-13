@@ -64,6 +64,10 @@ const config: Config = {
       backgroundImage: {
         'gradient-sol': 'var(--gradient-sol)',
         'gradient-sol-subtle': 'var(--gradient-sol-subtle)',
+        'gradient-banner-1': 'var(--gradient-banner-1)',
+        'gradient-banner-2': 'var(--gradient-banner-2)',
+        'gradient-banner-3': 'var(--gradient-banner-3)',
+        'gradient-banner-4': 'var(--gradient-banner-4)',
       },
       fontFamily: {
         sans: ["var(--font-inter)", "sans-serif"],

@@ -143,7 +143,7 @@ export function EditProfileModal({ isOpen, onClose, address }: Props) {
                 type="button"
                 aria-label="Select banner style"
                 onClick={() => setBannerGradient(gradient)}
-                className={`h-10 w-16 rounded-lg bg-gradient-to-r ${gradient} border transition-all ${
+                className={`h-10 w-16 rounded-lg bg-bg-elevated ${gradient} border transition-all ${
                   bannerGradient === gradient ? "border-text-primary" : "border-border-default opacity-70 hover:opacity-100"
                 }`}
               />

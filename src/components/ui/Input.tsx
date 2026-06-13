@@ -1,4 +1,4 @@
-import React, { forwardRef, InputHTMLAttributes } from 'react';
+import React, { forwardRef, InputHTMLAttributes, useId } from 'react';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -8,7 +8,8 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className = '', label, error, hint, id, ...props }, ref) => {
-    const inputId = id || Math.random().toString(36).substring(7);
+    const generatedId = useId();
+    const inputId = id || generatedId;
     
     return (
       <div className="flex w-full flex-col gap-1.5">

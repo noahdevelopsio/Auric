@@ -9,10 +9,10 @@ export const AVATAR_GRADIENTS = [
 ] as const;
 
 export const BANNER_GRADIENTS = [
-  "from-btc-500/20 via-bg-elevated to-sol-purple/20",
-  "from-sol-purple/20 via-bg-elevated to-sol-teal/20",
-  "from-btc-500/20 via-bg-elevated to-btc-300/20",
-  "from-sol-teal/20 via-bg-elevated to-sol-500/20",
+  "bg-gradient-banner-1",
+  "bg-gradient-banner-2",
+  "bg-gradient-banner-3",
+  "bg-gradient-banner-4",
 ] as const;
 
 export interface Profile {

@@ -39,6 +39,11 @@
     --gradient-sol: linear-gradient(135deg, #9945FF 0%, #14F195 100%);
     --gradient-sol-subtle: linear-gradient(135deg, rgba(153, 69, 255, 0.15) 0%, rgba(20, 241, 149, 0.15) 100%);
 
+    --gradient-banner-1: linear-gradient(to right, rgba(255, 152, 0, 0.35), var(--color-bg-elevated), rgba(153, 69, 255, 0.35));
+    --gradient-banner-2: linear-gradient(to right, rgba(153, 69, 255, 0.35), var(--color-bg-elevated), rgba(20, 241, 149, 0.35));
+    --gradient-banner-3: linear-gradient(to right, rgba(255, 152, 0, 0.35), var(--color-bg-elevated), rgba(255, 183, 77, 0.35));
+    --gradient-banner-4: linear-gradient(to right, rgba(20, 241, 149, 0.35), var(--color-bg-elevated), rgba(153, 69, 255, 0.35));
+
     --color-success: #14F195;
     --color-success-bg: rgba(20, 241, 149, 0.1);
     --color-warning: #FF9800;

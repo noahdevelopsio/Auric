@@ -6,39 +6,27 @@ import { NFTCard } from "@/components/nft/NFTCard";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ChainIcon } from "@/components/ui/ChainIcon";
-import { Copy, Check, ExternalLink, Loader2 } from "lucide-react";
+import { Copy, Check, Loader2 } from "lucide-react";
 import { useWalletStore } from "@/store/walletStore";
 import { useMarketplaceStore } from "@/store/marketplaceStore";
 import { useToastStore } from "@/store/toastStore";
-import { useProfileStore, type Profile } from "@/store/profileStore";
+import { useProfileStore, DEFAULT_PROFILE, type Profile } from "@/store/profileStore";
+import { useHasMounted } from "@/hooks/useHasMounted";
 import { cancelListing } from "@/lib/marketplace/solana";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
+import { fetchSolanaOwnedAssets, fetchSolanaCreatedAssets } from "@/lib/nft/solanaAssets";
 import type { ApiResponse } from "@/types/api";
+import type { OrdinalsAddressInfo } from "@/types/ordinals";
 
-const COLLECTED = [
-  { id: 1, name: "Blue Robot #001", chain: "solana" as const, price: "0.5 SOL" },
-  { id: 2, name: "Ordinal Ape #18", chain: "bitcoin" as const, price: "0.07 BTC" },
-  { id: 3, name: "Photon Bloom", chain: "solana" as const, price: "1.2 SOL" },
-  { id: 4, name: "Hash Relic", chain: "bitcoin" as const, price: "0.03 BTC" },
-];
-
-const CREATED = [
-  { id: 5, name: "Nebula #01", chain: "solana" as const, price: "2.0 SOL" },
-  { id: 6, name: "Void Script", chain: "bitcoin" as const, price: "0.01 BTC" },
-];
-
-const LISTED = [
-  { id: 1, name: "Blue Robot #001", chain: "solana" as const, price: "0.5 SOL", mintAddress: "7xKpBnZq3mRm7fYd3mZqABCDEF123456789abcdef12" },
-];
-
-const ACTIVITY: { id: number; type: string; nft: string; chain: "solana" | "bitcoin"; price: string | null; time: string }[] = [
-  { id: 1, type: "Minted", nft: "Blue Robot #001", chain: "solana", price: null, time: "2 hrs ago" },
-  { id: 2, type: "Sold", nft: "Photon Bloom", chain: "solana", price: "1.2 SOL", time: "1 day ago" },
-  { id: 3, type: "Inscribed", nft: "Hash Relic", chain: "bitcoin", price: null, time: "3 days ago" },
-  { id: 4, type: "Listed", nft: "Blue Robot #001", chain: "solana", price: "0.5 SOL", time: "4 hrs ago" },
-];
+interface OwnedItem {
+  id: string;
+  name: string;
+  chain: "solana" | "bitcoin";
+  image?: string;
+  collection?: string;
+}
 
 const TABS = ["Collected", "Created", "Listed", "Activity"] as const;
 type Tab = typeof TABS[number];
@@ -53,14 +41,28 @@ export default function ProfilePage({ params }: { params: { address: string } })
   const [copied, setCopied] = useState(false);
   const [delistingMint, setDelistingMint] = useState<string | null>(null);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
-  const { solanaAddress } = useWalletStore();
-  const { removeListing, getListing } = useMarketplaceStore();
+  const { solanaAddress, btcAddress } = useWalletStore();
+  const { listings: storeListings, removeListing, getListing } = useMarketplaceStore();
   const { addToast } = useToastStore();
   const { connection } = useConnection();
   const wallet = useWallet();
   const { getProfile, setProfile } = useProfileStore();
-  const isOwnProfile = solanaAddress === address;
-  const profile = getProfile(address);
+  const hasMounted = useHasMounted();
+  const isOwnProfile = hasMounted && ((!!solanaAddress && solanaAddress === address) || (!!btcAddress && btcAddress === address));
+  const profile = hasMounted ? getProfile(address) : DEFAULT_PROFILE;
+
+  const [collected, setCollected] = useState<OwnedItem[]>([]);
+  const [created, setCreated] = useState<OwnedItem[]>([]);
+  const [loadingCollected, setLoadingCollected] = useState(true);
+  const [loadingCreated, setLoadingCreated] = useState(true);
+
+  // First-time wallet connections land here with ?setup=1 so they can fill in their profile.
+  useEffect(() => {
+    if (searchParams.get("setup") === "1" && isOwnProfile) {
+      setEditProfileOpen(true);
+      router.replace(`/profile/${address}`, { scroll: false });
+    }
+  }, [searchParams, isOwnProfile, address, router]);
 
   useEffect(() => {
     if (!address) return;
@@ -77,6 +79,81 @@ export default function ProfilePage({ params }: { params: { address: string } })
       cancelled = true;
     };
   }, [address, setProfile]);
+
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+    const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+
+    async function load() {
+      setLoadingCollected(true);
+      setLoadingCreated(true);
+
+      const [solCollected, solCreated] = await Promise.all([
+        rpcUrl ? fetchSolanaOwnedAssets(rpcUrl, address).catch(() => []) : Promise.resolve([]),
+        rpcUrl ? fetchSolanaCreatedAssets(rpcUrl, address).catch(() => []) : Promise.resolve([]),
+      ]);
+
+      const collectedItems: OwnedItem[] = solCollected.map((a) => ({
+        id: a.mintAddress,
+        name: a.name,
+        chain: "solana",
+        image: a.image,
+        collection: a.collection,
+      }));
+      const createdItems: OwnedItem[] = solCreated.map((a) => ({
+        id: a.mintAddress,
+        name: a.name,
+        chain: "solana",
+        image: a.image,
+        collection: a.collection,
+      }));
+
+      if (isOwnProfile && btcAddress) {
+        try {
+          const res = await fetch(`/api/ordinals?address=${encodeURIComponent(btcAddress)}`);
+          const json: ApiResponse<OrdinalsAddressInfo> = await res.json();
+          if (json.success && json.data) {
+            collectedItems.push(
+              ...json.data.inscriptions.map((i) => ({
+                id: i.id,
+                name: `Inscription #${i.number}`,
+                chain: "bitcoin" as const,
+                image: `https://ordinals.com/content/${i.id}`,
+              }))
+            );
+          }
+        } catch {}
+
+        try {
+          const res = await fetch(`/api/ordinals?genesis_address=${encodeURIComponent(btcAddress)}`);
+          const json: ApiResponse<OrdinalsAddressInfo> = await res.json();
+          if (json.success && json.data) {
+            createdItems.push(
+              ...json.data.inscriptions.map((i) => ({
+                id: i.id,
+                name: `Inscription #${i.number}`,
+                chain: "bitcoin" as const,
+                image: `https://ordinals.com/content/${i.id}`,
+              }))
+            );
+          }
+        } catch {}
+      }
+
+      if (!cancelled) {
+        setCollected(collectedItems);
+        setCreated(createdItems);
+        setLoadingCollected(false);
+        setLoadingCreated(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [address, isOwnProfile, btcAddress]);
 
   const handleDelist = async (item: { name: string; mintAddress: string }) => {
     if (!solanaAddress || delistingMint) return;
@@ -110,20 +187,27 @@ export default function ProfilePage({ params }: { params: { address: string } })
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const listedItems = Object.values(storeListings).filter((l) => l.sellerAddress === address);
+
   const tabCounts: Record<Tab, number> = {
-    Collected: COLLECTED.length,
-    Created: CREATED.length,
-    Listed: LISTED.length,
-    Activity: ACTIVITY.length,
+    Collected: collected.length,
+    Created: created.length,
+    Listed: listedItems.length,
+    Activity: 0,
   };
+
+  const collectionCount = new Set(collected.map((i) => i.collection).filter(Boolean)).size;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
       {/* Profile Header */}
+      {!hasMounted ? (
+        <ProfileHeaderSkeleton />
+      ) : (
       <section className="rounded-3xl overflow-hidden border border-border-default bg-bg-surface mb-8">
         {/* Banner */}
-        <div className={`h-44 md:h-56 bg-gradient-to-r ${profile.bannerGradient} relative`}>
+        <div className={`h-44 md:h-56 bg-bg-elevated ${profile.bannerGradient} relative`}>
           {isOwnProfile && (
             <button
               onClick={() => setEditProfileOpen(true)}
@@ -177,10 +261,10 @@ export default function ProfilePage({ params }: { params: { address: string } })
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
               {[
-                { label: "Collected", value: "482" },
-                { label: "Created", value: "34" },
-                { label: "Collections", value: "3" },
-                { label: "Volume", value: "12 SOL" },
+                { label: "Collected", value: loadingCollected ? "—" : String(collected.length) },
+                { label: "Created", value: loadingCreated ? "—" : String(created.length) },
+                { label: "Collections", value: loadingCollected ? "—" : String(collectionCount) },
+                { label: "Listed", value: String(listedItems.length) },
               ].map((stat) => (
                 <div
                   key={stat.label}
@@ -202,6 +286,7 @@ export default function ProfilePage({ params }: { params: { address: string } })
           )}
         </div>
       </section>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-border-subtle mb-6">
@@ -226,35 +311,41 @@ export default function ProfilePage({ params }: { params: { address: string } })
       {/* Tab Content */}
       {activeTab === "Collected" && (
         <div>
-          {COLLECTED.length > 0 ? (
+          {loadingCollected ? (
+            <GridSkeleton />
+          ) : collected.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {COLLECTED.map((item) => (
+              {collected.map((item) => (
                 <NFTCard
-                  key={item.id}
+                  key={`${item.chain}-${item.id}`}
                   name={item.name}
                   chain={item.chain}
-                  price={item.price}
-                  onClick={() => router.push(`/nft/${item.chain}/${String(item.id).padStart(3, "0")}`)}
+                  image={item.image}
+                  price="—"
+                  onClick={() => router.push(`/nft/${item.chain}/${item.id}`)}
                 />
               ))}
             </div>
           ) : (
-            <EmptyState message="No NFTs collected yet" cta="Explore NFTs" ctaHref="/explore" />
+            <EmptyState message="No NFTs collected yet" cta="Explore Collections" ctaHref="/explore" />
           )}
         </div>
       )}
 
       {activeTab === "Created" && (
         <div>
-          {CREATED.length > 0 ? (
+          {loadingCreated ? (
+            <GridSkeleton />
+          ) : created.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {CREATED.map((item) => (
+              {created.map((item) => (
                 <NFTCard
-                  key={item.id}
+                  key={`${item.chain}-${item.id}`}
                   name={item.name}
                   chain={item.chain}
-                  price={item.price}
-                  onClick={() => router.push(`/nft/${item.chain}/${String(item.id).padStart(3, "0")}`)}
+                  image={item.image}
+                  price="—"
+                  onClick={() => router.push(`/nft/${item.chain}/${item.id}`)}
                 />
               ))}
             </div>
@@ -266,15 +357,16 @@ export default function ProfilePage({ params }: { params: { address: string } })
 
       {activeTab === "Listed" && (
         <div>
-          {LISTED.length > 0 ? (
+          {listedItems.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {LISTED.map((item) => (
-                <div key={item.id} className="relative">
+              {listedItems.map((item) => (
+                <div key={item.mintAddress} className="relative">
                   <NFTCard
-                    name={item.name}
+                    name={item.nftName}
                     chain={item.chain}
-                    price={item.price}
-                    onClick={() => router.push(`/nft/${item.chain}/${String(item.id).padStart(3, "0")}`)}
+                    image={item.nftImage}
+                    price={`${item.priceSOL} ${item.chain === "bitcoin" ? "BTC" : "SOL"}`}
+                    onClick={() => router.push(`/nft/${item.chain}/${item.mintAddress}`)}
                   />
                   {isOwnProfile && (
                     <div className="mt-2">
@@ -283,7 +375,7 @@ export default function ProfilePage({ params }: { params: { address: string } })
                         size="sm"
                         className="w-full flex items-center justify-center gap-1.5"
                         disabled={delistingMint === item.mintAddress}
-                        onClick={() => handleDelist(item)}
+                        onClick={() => handleDelist({ name: item.nftName, mintAddress: item.mintAddress })}
                       >
                         {delistingMint === item.mintAddress && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                         {delistingMint === item.mintAddress ? "Delisting…" : "Delist"}
@@ -300,81 +392,7 @@ export default function ProfilePage({ params }: { params: { address: string } })
       )}
 
       {activeTab === "Activity" && (
-        <div className="space-y-1">
-          {/* Desktop table */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-text-tertiary text-xs uppercase tracking-wider border-b border-border-subtle">
-                  <th className="pb-3 font-medium">Event</th>
-                  <th className="pb-3 font-medium">Item</th>
-                  <th className="pb-3 font-medium">Price</th>
-                  <th className="pb-3 font-medium text-right">When</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-subtle">
-                {ACTIVITY.map((a) => (
-                  <tr key={a.id} className="group hover:bg-bg-elevated/50 transition-colors">
-                    <td className="py-3">
-                      <span
-                        className={`inline-flex items-center gap-1.5 text-xs font-medium ${
-                          a.type === "Sold"
-                            ? "text-semantic-success"
-                            : a.type === "Minted"
-                            ? "text-sol-teal"
-                            : a.type === "Inscribed"
-                            ? "text-btc-500"
-                            : "text-semantic-info"
-                        }`}
-                      >
-                        {a.type}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      <span className="flex items-center gap-2">
-                        <span className="text-text-primary">{a.nft}</span>
-                        <ExternalLink className="w-3 h-3 text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </span>
-                    </td>
-                    <td className="py-3 font-mono text-text-secondary">
-                      {a.price ?? "—"}
-                    </td>
-                    <td className="py-3 text-text-tertiary text-right">{a.time}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile card rows */}
-          <div className="md:hidden space-y-2">
-            {ACTIVITY.map((a) => (
-              <div
-                key={a.id}
-                className="rounded-xl border border-border-subtle bg-bg-surface p-4 flex items-center gap-3"
-              >
-                <div className="w-10 h-10 rounded-lg bg-bg-elevated flex-shrink-0 flex items-center justify-center text-sm">
-                  <ChainIcon chain={a.chain} size={18} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-xs font-medium ${
-                        a.type === "Sold" ? "text-semantic-success" : "text-text-secondary"
-                      }`}
-                    >
-                      {a.type}
-                    </span>
-                    <span className="text-sm text-text-primary truncate">{a.nft}</span>
-                  </div>
-                  <div className="text-xs text-text-tertiary mt-0.5">
-                    {a.price ? `${a.price} · ` : ""}{a.time}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <EmptyState message="No activity recorded yet" cta="Explore Collections" ctaHref="/explore" />
       )}
 
       {isOwnProfile && (
@@ -384,6 +402,48 @@ export default function ProfilePage({ params }: { params: { address: string } })
           address={address}
         />
       )}
+    </div>
+  );
+}
+
+function ProfileHeaderSkeleton() {
+  return (
+    <section className="rounded-3xl overflow-hidden border border-border-default bg-bg-surface mb-8 animate-pulse">
+      <div className="h-44 md:h-56 bg-bg-elevated" />
+      <div className="px-6 pb-6 -mt-10">
+        <div className="w-20 h-20 rounded-full border-4 border-bg-base bg-bg-highlight" />
+        <div className="mt-4 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-7 w-40 bg-bg-highlight rounded" />
+            <div className="h-4 w-28 bg-bg-highlight rounded" />
+            <div className="flex items-center gap-2 mt-2">
+              <div className="h-5 w-20 bg-bg-highlight rounded-full" />
+              <div className="h-5 w-20 bg-bg-highlight rounded-full" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-[60px] w-20 rounded-xl bg-bg-elevated" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function GridSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="rounded-2xl border border-border-default bg-bg-surface overflow-hidden animate-pulse">
+          <div className="aspect-square bg-bg-elevated" />
+          <div className="p-4 space-y-2">
+            <div className="h-4 w-2/3 bg-bg-highlight rounded" />
+            <div className="h-3 w-1/3 bg-bg-highlight rounded" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
