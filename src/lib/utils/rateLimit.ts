@@ -3,8 +3,11 @@ import { Redis } from "@upstash/redis";
 import { NextRequest, NextResponse } from "next/server";
 import type { ApiResponse } from "@/types/api";
 
+// The Upstash REST client requires an https:// URL — guard against a
+// misconfigured rediss:// (ioredis-style) connection string so rate limiting
+// degrades to a no-op instead of crashing at module load.
 const redis =
-  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+  process.env.UPSTASH_REDIS_REST_URL?.startsWith("https://") && process.env.UPSTASH_REDIS_REST_TOKEN
     ? new Redis({
         url: process.env.UPSTASH_REDIS_REST_URL,
         token: process.env.UPSTASH_REDIS_REST_TOKEN,
@@ -20,6 +23,7 @@ const RATE_LIMIT_TIERS = {
   profile: { requests: 10, window: "1 m" as const },
   activity: { requests: 30, window: "1 m" as const },
   stats: { requests: 60, window: "1 m" as const },
+  marketplace: { requests: 20, window: "1 m" as const },
 } satisfies Record<string, { requests: number; window: `${number} ${"s" | "m" | "h"}` }>;
 
 export type RateLimitTier = keyof typeof RATE_LIMIT_TIERS;
