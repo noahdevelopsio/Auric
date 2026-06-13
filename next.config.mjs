@@ -21,6 +21,11 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  images: {
+    // NFT media is hosted on arbitrary user-supplied gateways (Arweave, IPFS,
+    // ordinals.com, Supabase storage), so we can't pin a fixed hostname list.
+    remotePatterns: [{ protocol: "https", hostname: "**" }],
+  },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
