@@ -100,6 +100,8 @@ export interface Activity {
   id: string;
   type: 'mint' | 'list' | 'delist' | 'sale' | 'transfer' | 'inscribe';
   nft_id?: string;
+  nft_name?: string;
+  nft_image?: string;
   collection_id?: string;
   from_wallet?: string;
   to_wallet?: string;

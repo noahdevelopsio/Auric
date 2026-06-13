@@ -7,9 +7,11 @@ import { useWalletStore } from "@/store/walletStore";
 import { useMarketplaceStore } from "@/store/marketplaceStore";
 import { useToastStore } from "@/store/toastStore";
 import { executeBuy, calcPlatformFee, calcRoyaltyFee } from "@/lib/marketplace/solana";
+import { recordActivity } from "@/lib/utils/activity";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { CheckCircle2, ExternalLink, Loader2, ShoppingBag } from "lucide-react";
+import Image from "next/image";
 
 const NETWORK_FEE_SOL = 0.000005;
 
@@ -70,6 +72,17 @@ export function BuyModal({ isOpen, onClose, mintAddress, listingAddress, nftName
       setTxSig(result.txSignature);
       setStep("success");
       addToast({ type: "success", message: `You bought ${nftName} for ${priceSOL} ${currency}!` });
+      recordActivity({
+        type: "sale",
+        chain: "solana",
+        nftId: mintAddress,
+        nftName,
+        nftImage,
+        fromWallet: sellerAddress,
+        toWallet: solanaAddress,
+        priceLamports: Math.round(priceSOL * 1_000_000_000),
+        txSignature: result.txSignature,
+      }, wallet);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Transaction failed. Please try again.");
       setStep("confirm");
@@ -83,7 +96,7 @@ export function BuyModal({ isOpen, onClose, mintAddress, listingAddress, nftName
           {/* NFT Preview */}
           <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-overlay p-3">
             <div className="h-14 w-14 rounded-lg border border-border-subtle bg-gradient-to-br from-sol-purple/20 to-sol-teal/10 flex-shrink-0 flex items-center justify-center text-xl font-bold text-text-tertiary overflow-hidden">
-              {nftImage ? <img src={nftImage} alt={nftName} className="h-full w-full object-cover" /> : "#"}
+              {nftImage ? <Image src={nftImage} alt={nftName} width={56} height={56} className="h-full w-full object-cover" /> : "#"}
             </div>
             <div>
               <div className="font-medium text-text-primary">{nftName}</div>
