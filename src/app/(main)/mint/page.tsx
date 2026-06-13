@@ -11,6 +11,7 @@ import { useWalletStore } from "@/store/walletStore";
 import { useToastStore } from "@/store/toastStore";
 import { mintSolanaNft, payPlatformMintFee } from "@/lib/mint/solana";
 import { inscribeOnBitcoin, fileToBase64 } from "@/lib/mint/bitcoin";
+import { signBitcoinMessage } from "@/lib/bitcoin/signMessage";
 import { recordActivity } from "@/lib/utils/activity";
 import { SOLANA_PLATFORM_FEE, BTC_PLATFORM_FEE, METAPLEX_FEE } from "@/lib/utils/constants";
 import type { ApiResponse, UploadResponse, MetadataResponse } from "@/types/api";
@@ -229,14 +230,20 @@ export default function MintPage() {
         setMintAddress(`${result.txId}i0`);
         setSuccess(true);
         addToast({ type: "success", message: "Inscription submitted successfully!" });
-        recordActivity({
-          type: "inscribe",
-          chain: "bitcoin",
-          nftId: `${result.txId}i0`,
-          nftName: name,
-          toWallet: btcAddress ?? undefined,
-          txSignature: result.txId,
-        });
+        if (btcAddress) {
+          recordActivity(
+            {
+              type: "inscribe",
+              chain: "bitcoin",
+              nftId: `${result.txId}i0`,
+              nftName: name,
+              toWallet: btcAddress,
+              txSignature: result.txId,
+            },
+            undefined,
+            { address: btcAddress, signMessage: (m) => signBitcoinMessage(btcAddress, m) }
+          );
+        }
       }
     } catch (err: unknown) {
       addToast({ type: "error", message: err instanceof Error ? err.message : `${targetChain === "solana" ? "Minting" : "Inscribing"} failed. Please try again.` });

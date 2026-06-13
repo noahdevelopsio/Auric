@@ -13,6 +13,7 @@ export interface Listing {
   txSignature: string;
   listingAddress: string;
   listedAt: number;
+  priceSats?: number; // exact sats for bitcoin listings; priceSOL holds priceSats/1e8 for display
 }
 
 interface MarketplaceState {

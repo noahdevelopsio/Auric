@@ -9,7 +9,11 @@ import { useMarketplaceStore } from "@/store/marketplaceStore";
 import { useToastStore } from "@/store/toastStore";
 import { ListingModal } from "@/components/marketplace/ListingModal";
 import { BuyModal } from "@/components/marketplace/BuyModal";
+import { BitcoinListingModal } from "@/components/marketplace/BitcoinListingModal";
+import { BitcoinBuyModal } from "@/components/marketplace/BitcoinBuyModal";
 import { cancelListing, DEFAULT_ROYALTY_BPS } from "@/lib/marketplace/solana";
+import { cancelListing as cancelBitcoinListing, SATS_PER_BTC } from "@/lib/marketplace/bitcoin";
+import { signBitcoinMessage } from "@/lib/bitcoin/signMessage";
 import { recordActivity } from "@/lib/utils/activity";
 import { fetchSolanaAsset, type SolanaAssetAttribute } from "@/lib/nft/solanaAssets";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
@@ -17,7 +21,8 @@ import { PublicKey } from "@solana/web3.js";
 import { Copy, ExternalLink, FileQuestion, Loader2, Tag } from "lucide-react";
 import { shortenAddress, formatRelativeTime } from "@/lib/utils/format";
 import type { OrdinalsInscription } from "@/types/ordinals";
-import type { ApiResponse } from "@/types/api";
+import type { OrdinalListing } from "@/types/marketplace";
+import type { ApiResponse, PaginatedResponse } from "@/types/api";
 
 const TABS = ["Details", "Activity", "Collection"] as const;
 type Tab = typeof TABS[number];
@@ -61,7 +66,7 @@ export default function NFTDetailPage({ params }: { params: { chain: string; id:
   const [notFound, setNotFound] = useState(false);
 
   const { solanaAddress, btcAddress, openModal } = useWalletStore();
-  const { getListing, removeListing } = useMarketplaceStore();
+  const { getListing, addListing, removeListing } = useMarketplaceStore();
   const { addToast } = useToastStore();
   const { connection } = useConnection();
   const wallet = useWallet();
@@ -136,6 +141,48 @@ export default function NFTDetailPage({ params }: { params: { chain: string; id:
     };
   }, [chain, id]);
 
+  // Bitcoin listings are off-chain rows in `ordinal_listings`, so sync the
+  // current active listing (if any) into the marketplace store for this page
+  // and the marketplace grid to stay consistent.
+  useEffect(() => {
+    if (chain !== "bitcoin") return;
+    let cancelled = false;
+
+    const loadListing = async () => {
+      try {
+        const res = await fetch(`/api/marketplace/listings?inscription_id=${encodeURIComponent(id)}&status=active&limit=1`);
+        const json: PaginatedResponse<OrdinalListing> = await res.json();
+        if (cancelled) return;
+        const found = json.success ? json.data?.[0] : undefined;
+        if (found) {
+          addListing({
+            mintAddress: id,
+            nftName: found.nftName ?? "Untitled",
+            nftImage: found.nftImage,
+            chain: "bitcoin",
+            sellerAddress: found.sellerAddress,
+            priceSOL: found.priceSats / SATS_PER_BTC,
+            priceSats: found.priceSats,
+            royaltyBps: 0,
+            expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
+            txSignature: "",
+            listingAddress: found.id,
+            listedAt: new Date(found.createdAt).getTime(),
+          });
+        } else {
+          removeListing(id);
+        }
+      } catch {
+        // best-effort sync; ignore failures
+      }
+    };
+
+    loadListing();
+    return () => {
+      cancelled = true;
+    };
+  }, [chain, id, addListing, removeListing]);
+
   const listing = getListing(id);
   const isListed = !!listing;
   const isOwner =
@@ -180,6 +227,32 @@ export default function NFTDetailPage({ params }: { params: { chain: string; id:
     }
   };
 
+  const handleCancelBtcListing = async () => {
+    if (!btcAddress || cancelling || !listing) return;
+    setCancelling(true);
+    try {
+      await cancelBitcoinListing({ listingId: listing.listingAddress, sellerAddress: btcAddress });
+      removeListing(id);
+      addToast({ type: "success", message: `Listing for ${asset?.name ?? "this inscription"} cancelled` });
+      recordActivity(
+        {
+          type: "delist",
+          chain: "bitcoin",
+          nftId: id,
+          nftName: asset?.name ?? "Untitled",
+          nftImage: asset?.image,
+          fromWallet: btcAddress,
+        },
+        undefined,
+        { address: btcAddress, signMessage: (m) => signBitcoinMessage(btcAddress, m) }
+      );
+    } catch (err: unknown) {
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Failed to cancel listing. Please try again." });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -211,7 +284,7 @@ export default function NFTDetailPage({ params }: { params: { chain: string; id:
   if (listing) {
     activity.push({
       event: "Listed",
-      price: `${listing.priceSOL} SOL`,
+      price: `${listing.priceSOL} ${listing.chain === "bitcoin" ? "BTC" : "SOL"}`,
       from: listing.sellerAddress,
       date: formatRelativeTime(new Date(listing.listedAt)),
     });
@@ -448,10 +521,74 @@ export default function NFTDetailPage({ params }: { params: { chain: string; id:
               )}
             </div>
           ) : (
-            <div className="rounded-2xl border border-border-default bg-bg-surface p-5">
-              <div className="text-sm text-text-tertiary mb-1">Status</div>
-              <div className="text-xl font-semibold text-text-secondary">Not listed</div>
-              <div className="text-sm text-text-tertiary mt-0.5">Marketplace trading for Bitcoin Ordinals is coming soon.</div>
+            <div className="rounded-2xl border border-border-default bg-bg-surface p-5 space-y-4">
+              {isListed ? (
+                <>
+                  <div>
+                    <div className="text-sm text-text-tertiary mb-1">Listed price</div>
+                    <div className="text-3xl font-headings font-bold">{listing!.priceSOL} BTC</div>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {btcAddress ? (
+                      isOwner ? (
+                        <Button variant="outline" size="lg" className="flex-1" disabled>
+                          You own this listing
+                        </Button>
+                      ) : (
+                        <Button variant="btc" size="lg" className="flex-1" onClick={() => setBuyOpen(true)}>
+                          Buy Now
+                        </Button>
+                      )
+                    ) : (
+                      <Button variant="btc" size="lg" className="w-full" onClick={() => openModal("bitcoin")}>
+                        Connect Wallet to Buy
+                      </Button>
+                    )}
+                  </div>
+                </>
+              ) : isOwner ? (
+                <>
+                  <div>
+                    <div className="text-sm text-text-tertiary mb-1">Status</div>
+                    <div className="text-xl font-semibold text-text-secondary">Not listed</div>
+                    <div className="text-sm text-text-tertiary mt-0.5">This inscription is not currently for sale.</div>
+                  </div>
+                  <Button
+                    variant="btc"
+                    size="lg"
+                    className="w-full flex items-center justify-center gap-2"
+                    onClick={() => setListingOpen(true)}
+                  >
+                    <Tag className="w-4 h-4" /> List for Sale
+                  </Button>
+                </>
+              ) : (
+                <div>
+                  <div className="text-sm text-text-tertiary mb-1">Status</div>
+                  <div className="text-xl font-semibold text-text-secondary">Not listed</div>
+                  <div className="text-sm text-text-tertiary mt-0.5">This inscription is not currently for sale.</div>
+                </div>
+              )}
+
+              {isOwner && isListed && (
+                <div className="pt-1 border-t border-border-subtle flex items-center justify-between">
+                  <span className="text-sm text-text-tertiary">Your listing is active</span>
+                  <button
+                    className="text-xs text-semantic-error hover:text-semantic-error/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                    disabled={cancelling}
+                    onClick={handleCancelBtcListing}
+                  >
+                    {cancelling && <Loader2 className="w-3 h-3 animate-spin" />}
+                    {cancelling ? "Cancelling…" : "Cancel listing"}
+                  </button>
+                </div>
+              )}
+
+              {!isOwner && isListed && (
+                <div className="text-sm text-text-tertiary pt-1 border-t border-border-subtle">
+                  Seller: <span className="font-mono text-text-secondary">{shortenAddress(listing!.sellerAddress)}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -498,6 +635,29 @@ export default function NFTDetailPage({ params }: { params: { chain: string; id:
             royaltyBps={listing?.royaltyBps ?? royaltyBps}
             chain="solana"
           />
+        </>
+      )}
+      {chain === "bitcoin" && (
+        <>
+          <BitcoinListingModal
+            isOpen={listingOpen}
+            onClose={() => setListingOpen(false)}
+            inscriptionId={id}
+            nftName={asset.name}
+            nftImage={asset.image}
+          />
+          {listing?.priceSats !== undefined && (
+            <BitcoinBuyModal
+              isOpen={buyOpen}
+              onClose={() => setBuyOpen(false)}
+              listingId={listing.listingAddress}
+              inscriptionId={id}
+              nftName={asset.name}
+              nftImage={asset.image}
+              priceSats={listing.priceSats}
+              sellerAddress={listing.sellerAddress}
+            />
+          )}
         </>
       )}
     </div>
