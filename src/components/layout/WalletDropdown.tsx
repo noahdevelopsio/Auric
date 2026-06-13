@@ -28,13 +28,14 @@ export function WalletDropdown({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener("mousedown", handle);
   }, [onClose]);
 
-  const isFirstRender = useRef(true);
+  // Close on navigation, but not on the initial mount. Compare against the
+  // pathname captured at mount (instead of a "first render" flag) so this
+  // stays correct under React Strict Mode's mount->cleanup->remount cycle,
+  // where a mutable "first render" ref would otherwise already read as false
+  // on the second mount and close the dropdown immediately.
+  const initialPathname = useRef(pathname);
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    onClose();
+    if (pathname !== initialPathname.current) onClose();
   }, [pathname, onClose]);
 
   useEffect(() => {
