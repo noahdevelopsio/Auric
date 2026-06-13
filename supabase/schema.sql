@@ -55,12 +55,41 @@ create table if not exists public.activity (
 create index if not exists activity_created_at_idx on public.activity (created_at desc);
 create index if not exists activity_nft_idx on public.activity (chain, nft_id);
 
+-- Ordinal listings: off-chain record of a seller-signed PSBT offering a
+-- Bitcoin Ordinals inscription for sale. The signed_psbt column is never
+-- exposed via the public GET endpoint; it's only read server-side when
+-- constructing a buyer's combined PSBT.
+create table if not exists public.ordinal_listings (
+  id uuid primary key default gen_random_uuid(),
+  inscription_id text not null,
+  seller_address text not null,
+  seller_payment_address text not null,
+  price_sats bigint not null check (price_sats > 0),
+  signed_psbt text not null,
+  utxo_txid text not null,
+  utxo_vout integer not null,
+  utxo_value_sats bigint not null,
+  status text not null default 'active' check (status in ('active', 'sold', 'cancelled')),
+  nft_name text,
+  nft_image text,
+  buyer_address text,
+  sale_tx_id text,
+  sold_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists ordinal_listings_inscription_idx on public.ordinal_listings (inscription_id);
+create index if not exists ordinal_listings_status_idx on public.ordinal_listings (status);
+create unique index if not exists ordinal_listings_active_inscription_idx
+  on public.ordinal_listings (inscription_id) where (status = 'active');
+
 -- Row Level Security: all writes go through API routes using the service
 -- role key (which bypasses RLS), so these policies only need to cover
 -- public read access.
 alter table public.profiles enable row level security;
 alter table public.collections enable row level security;
 alter table public.activity enable row level security;
+alter table public.ordinal_listings enable row level security;
 
 create policy "Profiles are publicly readable" on public.profiles
   for select using (true);
@@ -71,15 +100,20 @@ create policy "Collections are publicly readable" on public.collections
 create policy "Activity is publicly readable" on public.activity
   for select using (true);
 
+create policy "Ordinal listings are publicly readable" on public.ordinal_listings
+  for select using (true);
+
 -- Table-level grants: the service role (used by API routes) bypasses RLS
 -- but still needs base privileges, and anon/authenticated need SELECT for
 -- the public-read policies above to take effect.
 grant select, insert, update, delete on public.profiles to service_role;
 grant select, insert, update, delete on public.collections to service_role;
 grant select, insert on public.activity to service_role;
+grant select, insert, update on public.ordinal_listings to service_role;
 grant select on public.profiles to anon, authenticated;
 grant select on public.collections to anon, authenticated;
 grant select on public.activity to anon, authenticated;
+grant select on public.ordinal_listings to anon, authenticated;
 
 -- Storage buckets for uploaded media and generated NFT metadata JSON.
 insert into storage.buckets (id, name, public)
