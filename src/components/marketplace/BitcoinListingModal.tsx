@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { useWalletStore } from "@/store/walletStore";
 import { useMarketplaceStore } from "@/store/marketplaceStore";
 import { useToastStore } from "@/store/toastStore";
-import { createListing, SATS_PER_BTC } from "@/lib/marketplace/bitcoin";
+import { createListing, calcPlatformFee, calcSellerProceeds, SATS_PER_BTC } from "@/lib/marketplace/bitcoin";
 import { signBitcoinMessage } from "@/lib/bitcoin/signMessage";
 import { recordActivity } from "@/lib/utils/activity";
 import { CheckCircle2, Loader2, Tag } from "lucide-react";
@@ -38,6 +38,11 @@ export function BitcoinListingModal({ isOpen, onClose, inscriptionId, nftName, n
   const priceBTC = parseFloat(price) || 0;
   const priceSats = Math.round(priceBTC * SATS_PER_BTC);
   const priceValid = priceSats > 0 && priceBTC <= 21_000_000;
+
+  const platformFeeSats = calcPlatformFee(priceSats);
+  const sellerProceedsSats = calcSellerProceeds(priceSats);
+  const platformFeeBTC = platformFeeSats / SATS_PER_BTC;
+  const sellerProceedsBTC = sellerProceedsSats / SATS_PER_BTC;
 
   const handleClose = () => {
     if (step === "signing") return;
@@ -107,7 +112,7 @@ export function BitcoinListingModal({ isOpen, onClose, inscriptionId, nftName, n
             </div>
             <div>
               <div className="font-medium text-text-primary">{nftName}</div>
-              <div className="text-xs text-text-tertiary mt-0.5">Bitcoin Ordinal · No platform fee</div>
+              <div className="text-xs text-text-tertiary mt-0.5">Bitcoin Ordinal</div>
             </div>
           </div>
 
@@ -140,11 +145,11 @@ export function BitcoinListingModal({ isOpen, onClose, inscriptionId, nftName, n
               </div>
               <div className="flex justify-between text-text-secondary">
                 <span>Platform fee</span>
-                <span>0 BTC</span>
+                <span>{platformFeeBTC.toFixed(8)} BTC</span>
               </div>
               <div className="flex justify-between font-semibold text-text-primary border-t border-border-subtle pt-2.5">
                 <span>You receive</span>
-                <span className="text-btc-500">{priceBTC} BTC</span>
+                <span className="text-btc-500">{sellerProceedsBTC.toFixed(8)} BTC</span>
               </div>
               <p className="text-xs text-text-tertiary pt-1">
                 The buyer pays the Bitcoin network fee when completing the purchase.
@@ -179,7 +184,7 @@ export function BitcoinListingModal({ isOpen, onClose, inscriptionId, nftName, n
             </div>
             <div className="flex justify-between font-semibold text-text-primary border-t border-border-subtle pt-3">
               <span>You receive</span>
-              <span className="text-btc-500">{priceBTC} BTC</span>
+              <span className="text-btc-500">{sellerProceedsBTC.toFixed(8)} BTC</span>
             </div>
           </div>
 

@@ -34,22 +34,31 @@ export function BitcoinBuyModal({ isOpen, onClose, listingId, inscriptionId, nft
   const [txId, setTxId] = useState("");
   const [error, setError] = useState("");
   const [networkFeeSats, setNetworkFeeSats] = useState<number | null>(null);
+  const [platformFeeSats, setPlatformFeeSats] = useState<number | null>(null);
 
   const priceBTC = priceSats / SATS_PER_BTC;
   const networkFeeBTC = networkFeeSats !== null ? networkFeeSats / SATS_PER_BTC : null;
+  const platformFeeBTC = platformFeeSats !== null ? platformFeeSats / SATS_PER_BTC : null;
   const totalBTC = networkFeeBTC !== null ? priceBTC + networkFeeBTC : null;
 
   useEffect(() => {
     if (!isOpen || !btcAddress || !btcPaymentAddress || !btcPublicKey) return;
     setNetworkFeeSats(null);
+    setPlatformFeeSats(null);
     previewBuy({
       listingId,
       buyerOrdinalsAddress: btcAddress,
       buyerPaymentAddress: btcPaymentAddress,
       buyerPublicKey: btcPublicKey,
     })
-      .then((result) => setNetworkFeeSats(result.networkFeeSats))
-      .catch(() => setNetworkFeeSats(null));
+      .then((result) => {
+        setNetworkFeeSats(result.networkFeeSats);
+        setPlatformFeeSats(result.platformFeeSats);
+      })
+      .catch(() => {
+        setNetworkFeeSats(null);
+        setPlatformFeeSats(null);
+      });
   }, [isOpen, listingId, btcAddress, btcPaymentAddress, btcPublicKey]);
 
   const handleClose = () => {
@@ -119,8 +128,8 @@ export function BitcoinBuyModal({ isOpen, onClose, listingId, inscriptionId, nft
               <span className="text-text-primary font-medium">{priceBTC} BTC</span>
             </div>
             <div className="flex justify-between text-text-tertiary">
-              <span>Platform fee</span>
-              <span>0 BTC</span>
+              <span>Platform fee (included)</span>
+              <span>{platformFeeBTC !== null ? `${platformFeeBTC.toFixed(8)} BTC` : "—"}</span>
             </div>
             <div className="flex justify-between text-text-tertiary">
               <span>Network fee (est.)</span>

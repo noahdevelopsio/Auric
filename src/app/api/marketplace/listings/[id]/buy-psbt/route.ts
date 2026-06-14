@@ -5,6 +5,8 @@ import { validateBtcAddress } from "@/lib/utils/validation";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import { fetchAddressUtxos, fetchRecommendedFees } from "@/lib/bitcoin/mempool";
 import { buildBuyPsbt, getBitcoinNetwork, validateListingPsbt, type BuyerUtxoInput } from "@/lib/bitcoin/marketplacePsbt";
+import { calcPlatformFee } from "@/lib/bitcoin/fees";
+import { PLATFORM_FEE_ADDRESS_BTC } from "@/lib/utils/constants";
 import type { ApiResponse } from "@/types/api";
 import type { PreparedBuyPsbt } from "@/types/marketplace";
 
@@ -103,6 +105,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const scriptPubKey = Buffer.from(bitcoin.address.toOutputScript(buyerPaymentAddress, network));
   const internalPubkey = Buffer.from(buyerPublicKey, "hex");
   const feeRateSatsPerVb = fees.halfHourFee;
+  const platformFeeSats = calcPlatformFee(listing.price_sats);
 
   let result: ReturnType<typeof buildBuyPsbt> | null = null;
   for (let count = 1; count <= confirmed.length; count++) {
@@ -121,6 +124,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         buyerUtxos,
         buyerChangeAddress: buyerPaymentAddress,
         feeRateSatsPerVb,
+        platformFeeSats,
+        platformFeeAddress: PLATFORM_FEE_ADDRESS_BTC,
       });
       break;
     } catch {
@@ -137,6 +142,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     signInputs: { [buyerPaymentAddress]: result.signInputIndexes },
     totalSats: listing.price_sats + result.networkFeeSats,
     networkFeeSats: result.networkFeeSats,
+    platformFeeSats,
   };
 
   return NextResponse.json<ApiResponse<PreparedBuyPsbt>>({ success: true, data: prepared });

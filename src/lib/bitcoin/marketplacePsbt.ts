@@ -1,4 +1,5 @@
 import * as bitcoin from 'bitcoinjs-lib';
+import { calcSellerProceeds, DUST_THRESHOLD_SATS } from './fees';
 
 const { toXOnly } = bitcoin;
 
@@ -44,9 +45,6 @@ export interface BuyerUtxoInput {
 const SIGHASH_SINGLE_ANYONECANPAY =
   bitcoin.Transaction.SIGHASH_SINGLE | bitcoin.Transaction.SIGHASH_ANYONECANPAY;
 
-// Dust threshold below which a change output is dropped (added to the fee instead).
-const DUST_THRESHOLD_SATS = 546;
-
 // Rough vbyte costs for fee estimation, assuming taproot key-path spends/outputs.
 const TX_BASE_VBYTES = 11;
 const TAPROOT_INPUT_VBYTES = 58;
@@ -63,13 +61,19 @@ function isTaprootScript(script: Buffer): boolean {
 
 // Builds a single-input, single-output PSBT offering an ordinal UTXO for sale.
 // Input 0 (the ordinal UTXO) is signed with SIGHASH_SINGLE | SIGHASH_ANYONECANPAY,
-// binding it to output 0 (the seller's proceeds) while allowing a buyer to append
-// additional inputs/outputs without invalidating the seller's signature.
+// binding it to output 0 (the seller's proceeds — the list price minus the
+// platform fee, per PRD §7) while allowing a buyer to append additional
+// inputs/outputs without invalidating the seller's signature.
 export function buildListingPsbt(opts: {
   ordinalUtxo: OrdinalUtxoInput;
   sellerPaymentAddress: string;
   priceSats: number;
 }): bitcoin.Psbt {
+  const sellerProceedsSats = calcSellerProceeds(opts.priceSats);
+  if (sellerProceedsSats < DUST_THRESHOLD_SATS) {
+    throw new Error('Listing price is too low after the platform fee is deducted');
+  }
+
   const psbt = new bitcoin.Psbt({ network: getBitcoinNetwork() });
 
   psbt.addInput({
@@ -85,7 +89,7 @@ export function buildListingPsbt(opts: {
 
   psbt.addOutput({
     address: opts.sellerPaymentAddress,
-    value: BigInt(opts.priceSats),
+    value: BigInt(sellerProceedsSats),
   });
 
   return psbt;
@@ -95,14 +99,16 @@ export function buildListingPsbt(opts: {
 // complete sale transaction. The seller's input/output remain at index 0 — this
 // is required for their SIGHASH_SINGLE|ANYONECANPAY signature to remain valid.
 // Buyer inputs are appended after input 0, and an ordinal-recipient output
-// (returning the ordinal's postage value to the buyer) plus an optional change
-// output are appended after output 0.
+// (returning the ordinal's postage value to the buyer), an optional platform
+// fee output, and an optional change output are appended after output 0.
 export function buildBuyPsbt(opts: {
   sellerSignedPsbt: string;
   buyerOrdinalsAddress: string;
   buyerUtxos: BuyerUtxoInput[];
   buyerChangeAddress: string;
   feeRateSatsPerVb: number;
+  platformFeeSats: number;
+  platformFeeAddress?: string | null;
 }): { psbt: bitcoin.Psbt; signInputIndexes: number[]; networkFeeSats: number } {
   const psbt = bitcoin.Psbt.fromBase64(normalizePsbtInput(opts.sellerSignedPsbt), {
     network: getBitcoinNetwork(),
@@ -121,13 +127,24 @@ export function buildBuyPsbt(opts: {
   }
 
   const ordinalValueSats = Number(sellerInput.witnessUtxo.value);
-  const priceSats = Number(psbt.txOutputs[0].value);
+  const sellerProceedsSats = Number(psbt.txOutputs[0].value);
 
   // Output 1: return the ordinal's postage value to the buyer's ordinals address.
   psbt.addOutput({
     address: opts.buyerOrdinalsAddress,
     value: BigInt(ordinalValueSats),
   });
+
+  // Output 2 (optional): platform fee, paid by the buyer on top of the
+  // seller's proceeds so the seller still receives the discounted amount
+  // they signed for.
+  const addFeeOutput = opts.platformFeeSats > 0 && !!opts.platformFeeAddress;
+  if (addFeeOutput) {
+    psbt.addOutput({
+      address: opts.platformFeeAddress!,
+      value: BigInt(opts.platformFeeSats),
+    });
+  }
 
   const signInputIndexes: number[] = [];
   let buyerInputSum = 0;
@@ -148,9 +165,11 @@ export function buildBuyPsbt(opts: {
   }
 
   const totalInputCount = 1 + opts.buyerUtxos.length;
-  const remaining = buyerInputSum - priceSats;
-  const feeWithChange = Math.ceil(estimateVsize(totalInputCount, 3) * opts.feeRateSatsPerVb);
-  const feeWithoutChange = Math.ceil(estimateVsize(totalInputCount, 2) * opts.feeRateSatsPerVb);
+  const totalPriceSats = sellerProceedsSats + (addFeeOutput ? opts.platformFeeSats : 0);
+  const remaining = buyerInputSum - totalPriceSats;
+  const baseOutputCount = addFeeOutput ? 3 : 2;
+  const feeWithChange = Math.ceil(estimateVsize(totalInputCount, baseOutputCount + 1) * opts.feeRateSatsPerVb);
+  const feeWithoutChange = Math.ceil(estimateVsize(totalInputCount, baseOutputCount) * opts.feeRateSatsPerVb);
 
   let networkFeeSats: number;
   if (remaining - feeWithChange >= DUST_THRESHOLD_SATS) {
@@ -207,7 +226,7 @@ export function validateListingPsbt(opts: {
   }
 
   const output = psbt.txOutputs[0];
-  if (Number(output.value) !== opts.expectedPriceSats) {
+  if (Number(output.value) !== calcSellerProceeds(opts.expectedPriceSats)) {
     return { valid: false, error: 'PSBT output value does not match the listed price' };
   }
 

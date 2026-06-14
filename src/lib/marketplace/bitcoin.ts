@@ -6,15 +6,7 @@ import type { PreparedListingPsbt, PreparedBuyPsbt } from '@/types/marketplace';
 
 export const SATS_PER_BTC = 100_000_000;
 
-// 0% platform fee on Bitcoin sales for v1 — kept as a function for symmetry
-// with the Solana marketplace lib's calc helpers.
-export function calcPlatformFee(): number {
-  return 0;
-}
-
-export function calcSellerProceeds(priceSats: number): number {
-  return priceSats;
-}
+export { calcPlatformFee, calcSellerProceeds, PLATFORM_FEE_BPS } from '@/lib/bitcoin/fees';
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, {

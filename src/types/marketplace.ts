@@ -26,4 +26,5 @@ export interface PreparedBuyPsbt {
   signInputs: Record<string, number[]>; // { [buyerPaymentAddress]: [...] }
   totalSats: number; // price + network fee buyer pays
   networkFeeSats: number;
+  platformFeeSats: number; // included within price, not added to totalSats
 }
