@@ -94,6 +94,16 @@ export function validateSolanaAddress(address: string): string | null {
 }
 
 /**
+ * Detect which chain a wallet address belongs to, based on address format.
+ * Returns null if the address is neither a valid Solana nor Bitcoin address.
+ */
+export function detectAddressChain(address: string): 'solana' | 'bitcoin' | null {
+  if (!validateSolanaAddress(address)) return 'solana';
+  if (!validateBtcAddress(address)) return 'bitcoin';
+  return null;
+}
+
+/**
  * Validate BTC address — decodes the address against mainnet and testnet to confirm it's well-formed
  */
 export function validateBtcAddress(address: string): string | null {

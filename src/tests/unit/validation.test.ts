@@ -7,6 +7,7 @@ import {
   validateSolanaAddress,
   validateBtcAddress,
   validateMintForm,
+  detectAddressChain,
 } from "@/lib/utils/validation";
 
 describe("validateName", () => {
@@ -131,6 +132,28 @@ describe("validateBtcAddress", () => {
 
   it("rejects a malformed address", () => {
     expect(validateBtcAddress("xpubinvalidaddress123456789012345")).not.toBeNull();
+  });
+});
+
+describe("detectAddressChain", () => {
+  it("detects a Solana address", () => {
+    expect(detectAddressChain("AmbEbesfEKs7vo7HJ1xqvDgUqAs7UAv1ts3KcgLvcLwf")).toBe("solana");
+  });
+
+  it("detects a native segwit Bitcoin address", () => {
+    expect(detectAddressChain("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4")).toBe("bitcoin");
+  });
+
+  it("detects a legacy Bitcoin address", () => {
+    expect(detectAddressChain("1A1zP1eP5QGefi2DMPTfTL5SLmv7Divf" + "Na")).toBe("bitcoin");
+  });
+
+  it("returns null for an address that is neither", () => {
+    expect(detectAddressChain("not-a-valid-address")).toBeNull();
+  });
+
+  it("returns null for an empty string", () => {
+    expect(detectAddressChain("")).toBeNull();
   });
 });
 

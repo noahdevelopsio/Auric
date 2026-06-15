@@ -21,6 +21,7 @@ const RATE_LIMIT_TIERS = {
   ordinals: { requests: 30, window: "1 m" as const },
   metadata: { requests: 20, window: "1 m" as const },
   profile: { requests: 10, window: "1 m" as const },
+  account: { requests: 10, window: "1 m" as const },
   activity: { requests: 30, window: "1 m" as const },
   stats: { requests: 60, window: "1 m" as const },
   marketplace: { requests: 20, window: "1 m" as const },
