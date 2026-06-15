@@ -2,6 +2,7 @@ import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/Button";
 import Hero from "@/components/landing/Hero";
 import StatsBar from "@/components/landing/StatsBar";
+import FeaturedDrops from "@/components/sections/FeaturedDrops";
 import CreatorSpotlight from "@/components/sections/CreatorSpotlight";
 import PullToRefresh from "@/components/ui/PullToRefresh";
 
@@ -64,6 +65,7 @@ export default function LandingPage() {
           </div>
         </section>
 
+        <FeaturedDrops />
         <CreatorSpotlight />
 
         <section className="py-24 px-4 text-center bg-gradient-to-r from-sol/10 to-btc/10">
