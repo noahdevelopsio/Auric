@@ -1,9 +1,10 @@
 -- Auric Supabase schema
 -- Run this once against your Supabase project (SQL Editor or `supabase db push`).
 
--- Profiles: one row per wallet address.
-create table if not exists public.profiles (
-  wallet_address text primary key,
+-- Accounts: the canonical identity. One row per linked identity, holding
+-- profile data (one or more wallet addresses attach via account_wallets).
+create table if not exists public.accounts (
+  id uuid primary key default gen_random_uuid(),
   display_name text,
   bio text,
   avatar_gradient text,
@@ -11,6 +12,21 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Account wallets: one or more wallet addresses (Solana and/or Bitcoin)
+-- attached to an account. Exactly one wallet per account is `is_primary`;
+-- /profile/<address> for a non-primary wallet redirects to the primary's.
+create table if not exists public.account_wallets (
+  wallet_address text primary key,
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  chain text not null check (chain in ('solana', 'bitcoin')),
+  is_primary boolean not null default false,
+  linked_at timestamptz not null default now()
+);
+
+create index if not exists account_wallets_account_idx on public.account_wallets (account_id);
+create unique index if not exists account_wallets_primary_idx
+  on public.account_wallets (account_id) where (is_primary);
 
 -- Collections: groupings of NFTs created by a wallet.
 create table if not exists public.collections (
@@ -86,12 +102,16 @@ create unique index if not exists ordinal_listings_active_inscription_idx
 -- Row Level Security: all writes go through API routes using the service
 -- role key (which bypasses RLS), so these policies only need to cover
 -- public read access.
-alter table public.profiles enable row level security;
+alter table public.accounts enable row level security;
+alter table public.account_wallets enable row level security;
 alter table public.collections enable row level security;
 alter table public.activity enable row level security;
 alter table public.ordinal_listings enable row level security;
 
-create policy "Profiles are publicly readable" on public.profiles
+create policy "Accounts are publicly readable" on public.accounts
+  for select using (true);
+
+create policy "Account wallets are publicly readable" on public.account_wallets
   for select using (true);
 
 create policy "Collections are publicly readable" on public.collections
@@ -106,11 +126,13 @@ create policy "Ordinal listings are publicly readable" on public.ordinal_listing
 -- Table-level grants: the service role (used by API routes) bypasses RLS
 -- but still needs base privileges, and anon/authenticated need SELECT for
 -- the public-read policies above to take effect.
-grant select, insert, update, delete on public.profiles to service_role;
+grant select, insert, update, delete on public.accounts to service_role;
+grant select, insert, update, delete on public.account_wallets to service_role;
 grant select, insert, update, delete on public.collections to service_role;
 grant select, insert on public.activity to service_role;
 grant select, insert, update on public.ordinal_listings to service_role;
-grant select on public.profiles to anon, authenticated;
+grant select on public.accounts to anon, authenticated;
+grant select on public.account_wallets to anon, authenticated;
 grant select on public.collections to anon, authenticated;
 grant select on public.activity to anon, authenticated;
 grant select on public.ordinal_listings to anon, authenticated;
@@ -129,3 +151,33 @@ create policy "Media is publicly readable" on storage.objects
 
 create policy "Metadata is publicly readable" on storage.objects
   for select using (bucket_id = 'metadata');
+
+-- One-time migration: if a legacy `profiles` table exists (pre-accounts
+-- schema), migrate each row into a new account + account_wallets row, then
+-- drop it. Safe to leave in place — it's a no-op once `profiles` is gone.
+do $$
+declare
+  r record;
+  new_account_id uuid;
+begin
+  if to_regclass('public.profiles') is null then
+    return;
+  end if;
+
+  for r in select * from public.profiles loop
+    insert into public.accounts (display_name, bio, avatar_gradient, banner_gradient, created_at, updated_at)
+    values (r.display_name, r.bio, r.avatar_gradient, r.banner_gradient, r.created_at, r.updated_at)
+    returning id into new_account_id;
+
+    insert into public.account_wallets (wallet_address, account_id, chain, is_primary)
+    values (
+      r.wallet_address,
+      new_account_id,
+      case when r.wallet_address ~ '^(bc1|[13])' then 'bitcoin' else 'solana' end,
+      true
+    )
+    on conflict (wallet_address) do nothing;
+  end loop;
+
+  drop table public.profiles;
+end $$;
