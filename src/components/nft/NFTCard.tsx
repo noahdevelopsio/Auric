@@ -25,8 +25,8 @@ export function NFTCard({ name, chain, price, image, verified = true, priceChang
     ? amount >= 1000
       ? new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 2 }).format(amount)
       : amount < 1
-      ? amount.toFixed(4).replace(/(?:\.0+|0+$)/, "")
-      : amount.toFixed(2).replace(/(?:\.0+|0+$)/, "")
+      ? amount.toFixed(4).replace(/\.?0+$/, "")
+      : amount.toFixed(2).replace(/\.?0+$/, "")
     : price;
 
   const change = priceChange;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { useMarketplaceStore, Listing } from "@/store/marketplaceStore";
@@ -27,8 +28,14 @@ function ListingCard({ listing, onBuy }: { listing: Listing; onBuy: (l: Listing)
   return (
     <div className="group rounded-2xl border border-border-default bg-bg-surface hover:border-border-strong transition-all duration-200 overflow-hidden flex flex-col">
       {/* Image area */}
-      <div className={`aspect-square flex items-center justify-center text-3xl font-headings font-bold text-text-tertiary border-b border-border-subtle ${listing.chain === "solana" ? "bg-gradient-to-br from-sol-purple/10 via-bg-elevated to-sol-teal/10" : "bg-gradient-to-br from-btc-500/10 via-bg-elevated to-btc-500/5"}`}>
-        {listing.nftName.split(" ").pop()}
+      <div className={`aspect-square relative border-b border-border-subtle ${listing.chain === "solana" ? "bg-gradient-to-br from-sol-purple/10 via-bg-elevated to-sol-teal/10" : "bg-gradient-to-br from-btc-500/10 via-bg-elevated to-btc-500/5"}`}>
+        {listing.nftImage ? (
+          <Image src={listing.nftImage} alt={listing.nftName} fill className="object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-3xl font-headings font-bold text-text-tertiary">
+            {listing.nftName.split(" ").pop()}
+          </div>
+        )}
       </div>
 
       <div className="p-4 flex flex-col gap-3 flex-1">
