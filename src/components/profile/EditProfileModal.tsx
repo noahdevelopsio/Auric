@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/Input";
 import { Check, Loader2 } from "lucide-react";
 import { AVATAR_GRADIENTS, BANNER_GRADIENTS, useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
-import { validateProfile } from "@/lib/utils/validation";
+import { detectAddressChain, validateProfile } from "@/lib/utils/validation";
 import { MAX_BIO_LENGTH } from "@/lib/utils/constants";
 import { buildAuthMessage } from "@/lib/auth/walletAuth";
+import { signBitcoinMessage } from "@/lib/bitcoin/signMessage";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { ApiResponse } from "@/types/api";
 
@@ -48,7 +49,8 @@ export function EditProfileModal({ isOpen, onClose, address }: Props) {
       return;
     }
 
-    if (!wallet.signMessage) {
+    const chain = detectAddressChain(address);
+    if (chain === "solana" && !wallet.signMessage) {
       addToast({ type: "error", message: "Your wallet does not support message signing" });
       return;
     }
@@ -57,8 +59,10 @@ export function EditProfileModal({ isOpen, onClose, address }: Props) {
     try {
       const timestamp = Date.now();
       const message = buildAuthMessage("update profile", address, timestamp);
-      const signatureBytes = await wallet.signMessage(new TextEncoder().encode(message));
-      const signature = Buffer.from(signatureBytes).toString("base64");
+      const signature =
+        chain === "bitcoin"
+          ? await signBitcoinMessage(address, message)
+          : Buffer.from(await wallet.signMessage!(new TextEncoder().encode(message))).toString("base64");
 
       const res = await fetch("/api/profile", {
         method: "PATCH",

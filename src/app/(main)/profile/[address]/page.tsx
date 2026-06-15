@@ -6,19 +6,24 @@ import { NFTCard } from "@/components/nft/NFTCard";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ChainIcon } from "@/components/ui/ChainIcon";
-import { Copy, Check, Loader2 } from "lucide-react";
+import { Copy, Check, Loader2, X } from "lucide-react";
 import { useWalletStore } from "@/store/walletStore";
 import { useMarketplaceStore } from "@/store/marketplaceStore";
 import { useToastStore } from "@/store/toastStore";
-import { useProfileStore, DEFAULT_PROFILE, type Profile } from "@/store/profileStore";
+import { useProfileStore, DEFAULT_PROFILE } from "@/store/profileStore";
 import { useHasMounted } from "@/hooks/useHasMounted";
 import { cancelListing } from "@/lib/marketplace/solana";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
+import { LinkWalletButton } from "@/components/profile/LinkWalletButton";
 import { fetchSolanaOwnedAssets, fetchSolanaCreatedAssets } from "@/lib/nft/solanaAssets";
+import { buildAuthMessage } from "@/lib/auth/walletAuth";
+import { signBitcoinMessage } from "@/lib/bitcoin/signMessage";
+import { detectAddressChain } from "@/lib/utils/validation";
 import type { ApiResponse } from "@/types/api";
 import type { OrdinalsAddressInfo } from "@/types/ordinals";
+import type { LinkedWallet, ProfileDto } from "@/types/account";
 
 interface OwnedItem {
   id: string;
@@ -48,13 +53,23 @@ export default function ProfilePage({ params }: { params: { address: string } })
   const wallet = useWallet();
   const { getProfile, setProfile } = useProfileStore();
   const hasMounted = useHasMounted();
-  const isOwnProfile = hasMounted && ((!!solanaAddress && solanaAddress === address) || (!!btcAddress && btcAddress === address));
   const profile = hasMounted ? getProfile(address) : DEFAULT_PROFILE;
 
   const [collected, setCollected] = useState<OwnedItem[]>([]);
   const [created, setCreated] = useState<OwnedItem[]>([]);
   const [loadingCollected, setLoadingCollected] = useState(true);
   const [loadingCreated, setLoadingCreated] = useState(true);
+  const [linkedAddresses, setLinkedAddresses] = useState<LinkedWallet[]>([]);
+  const [primaryAddress, setPrimaryAddress] = useState(address);
+  const [unlinkingAddress, setUnlinkingAddress] = useState<string | null>(null);
+
+  const accountWallets: LinkedWallet[] =
+    linkedAddresses.length > 0 ? linkedAddresses : [{ address, chain: detectAddressChain(address) ?? "solana", isPrimary: true }];
+  const accountAddresses = accountWallets.map((w) => w.address);
+  const accountChains = new Set(accountWallets.map((w) => w.chain));
+  const isOwnProfile =
+    hasMounted &&
+    accountAddresses.some((a) => (!!solanaAddress && a === solanaAddress) || (!!btcAddress && a === btcAddress));
 
   // First-time wallet connections land here with ?setup=1 so they can fill in their profile.
   useEffect(() => {
@@ -69,76 +84,90 @@ export default function ProfilePage({ params }: { params: { address: string } })
     let cancelled = false;
     fetch(`/api/profile?address=${address}`)
       .then((res) => res.json())
-      .then((json: ApiResponse<Profile>) => {
+      .then((json: ApiResponse<ProfileDto>) => {
         if (cancelled || !json.success || !json.data) return;
-        const { displayName, bio, avatarGradient, bannerGradient } = json.data;
+        const { displayName, bio, avatarGradient, bannerGradient, linkedAddresses, primaryAddress } = json.data;
         setProfile(address, { displayName, bio, avatarGradient, bannerGradient });
+        setLinkedAddresses(linkedAddresses);
+        setPrimaryAddress(primaryAddress);
+        if (primaryAddress !== address) {
+          const tab = searchParams.get("tab");
+          router.replace(`/profile/${primaryAddress}${tab ? `?tab=${tab}` : ""}`);
+        }
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [address, setProfile]);
+  }, [address, setProfile, router, searchParams]);
 
   useEffect(() => {
     if (!address) return;
     let cancelled = false;
     const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
 
+    const wallets: LinkedWallet[] =
+      linkedAddresses.length > 0
+        ? linkedAddresses
+        : [{ address, chain: detectAddressChain(address) ?? "solana", isPrimary: true }];
+    const solanaWallets = wallets.filter((w) => w.chain === "solana").map((w) => w.address);
+    const bitcoinWallets = wallets.filter((w) => w.chain === "bitcoin").map((w) => w.address);
+
     async function load() {
       setLoadingCollected(true);
       setLoadingCreated(true);
 
-      const [solCollected, solCreated] = await Promise.all([
-        rpcUrl ? fetchSolanaOwnedAssets(rpcUrl, address).catch(() => []) : Promise.resolve([]),
-        rpcUrl ? fetchSolanaCreatedAssets(rpcUrl, address).catch(() => []) : Promise.resolve([]),
-      ]);
+      const collectedItems: OwnedItem[] = [];
+      const createdItems: OwnedItem[] = [];
 
-      const collectedItems: OwnedItem[] = solCollected.map((a) => ({
-        id: a.mintAddress,
-        name: a.name,
-        chain: "solana",
-        image: a.image,
-        collection: a.collection,
-      }));
-      const createdItems: OwnedItem[] = solCreated.map((a) => ({
-        id: a.mintAddress,
-        name: a.name,
-        chain: "solana",
-        image: a.image,
-        collection: a.collection,
-      }));
+      if (rpcUrl) {
+        for (const solAddress of solanaWallets) {
+          const [solCollected, solCreated] = await Promise.all([
+            fetchSolanaOwnedAssets(rpcUrl, solAddress).catch(() => []),
+            fetchSolanaCreatedAssets(rpcUrl, solAddress).catch(() => []),
+          ]);
 
-      if (isOwnProfile && btcAddress) {
-        try {
-          const res = await fetch(`/api/ordinals?address=${encodeURIComponent(btcAddress)}`);
-          const json: ApiResponse<OrdinalsAddressInfo> = await res.json();
-          if (json.success && json.data) {
-            collectedItems.push(
-              ...json.data.inscriptions.map((i) => ({
-                id: i.id,
-                name: `Inscription #${i.number}`,
-                chain: "bitcoin" as const,
-                image: `https://ordinals.com/content/${i.id}`,
-              }))
-            );
-          }
-        } catch {}
+          collectedItems.push(
+            ...solCollected.map((a) => ({ id: a.mintAddress, name: a.name, chain: "solana" as const, image: a.image, collection: a.collection }))
+          );
+          createdItems.push(
+            ...solCreated.map((a) => ({ id: a.mintAddress, name: a.name, chain: "solana" as const, image: a.image, collection: a.collection }))
+          );
+        }
+      }
 
-        try {
-          const res = await fetch(`/api/ordinals?genesis_address=${encodeURIComponent(btcAddress)}`);
-          const json: ApiResponse<OrdinalsAddressInfo> = await res.json();
-          if (json.success && json.data) {
-            createdItems.push(
-              ...json.data.inscriptions.map((i) => ({
-                id: i.id,
-                name: `Inscription #${i.number}`,
-                chain: "bitcoin" as const,
-                image: `https://ordinals.com/content/${i.id}`,
-              }))
-            );
-          }
-        } catch {}
+      if (isOwnProfile) {
+        for (const btcWallet of bitcoinWallets) {
+          try {
+            const res = await fetch(`/api/ordinals?address=${encodeURIComponent(btcWallet)}`);
+            const json: ApiResponse<OrdinalsAddressInfo> = await res.json();
+            if (json.success && json.data) {
+              collectedItems.push(
+                ...json.data.inscriptions.map((i) => ({
+                  id: i.id,
+                  name: `Inscription #${i.number}`,
+                  chain: "bitcoin" as const,
+                  image: `https://ordinals.com/content/${i.id}`,
+                }))
+              );
+            }
+          } catch {}
+
+          try {
+            const res = await fetch(`/api/ordinals?genesis_address=${encodeURIComponent(btcWallet)}`);
+            const json: ApiResponse<OrdinalsAddressInfo> = await res.json();
+            if (json.success && json.data) {
+              createdItems.push(
+                ...json.data.inscriptions.map((i) => ({
+                  id: i.id,
+                  name: `Inscription #${i.number}`,
+                  chain: "bitcoin" as const,
+                  image: `https://ordinals.com/content/${i.id}`,
+                }))
+              );
+            }
+          } catch {}
+        }
       }
 
       if (!cancelled) {
@@ -153,7 +182,7 @@ export default function ProfilePage({ params }: { params: { address: string } })
     return () => {
       cancelled = true;
     };
-  }, [address, isOwnProfile, btcAddress]);
+  }, [address, isOwnProfile, linkedAddresses]);
 
   const handleDelist = async (item: { name: string; mintAddress: string }) => {
     if (!solanaAddress || delistingMint) return;
@@ -187,7 +216,61 @@ export default function ProfilePage({ params }: { params: { address: string } })
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const listedItems = Object.values(storeListings).filter((l) => l.sellerAddress === address);
+  const handleUnlink = async (walletAddress: string) => {
+    if (unlinkingAddress) return;
+    const walletChain = linkedAddresses.find((w) => w.address === walletAddress)?.chain;
+    if (!walletChain) return;
+
+    if (walletChain === "solana" && !wallet.signMessage) {
+      addToast({ type: "error", message: "Your Solana wallet does not support message signing" });
+      return;
+    }
+
+    setUnlinkingAddress(walletAddress);
+    try {
+      const timestamp = Date.now();
+      const message = buildAuthMessage("unlink wallet", walletAddress, timestamp);
+      const signature =
+        walletChain === "bitcoin"
+          ? await signBitcoinMessage(walletAddress, message)
+          : Buffer.from(await wallet.signMessage!(new TextEncoder().encode(message))).toString("base64");
+
+      const res = await fetch("/api/account/unlink", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: walletAddress, signature, timestamp }),
+      });
+      const json: ApiResponse<ProfileDto> = await res.json();
+      if (!json.success || !json.data) throw new Error(json.error ?? "Failed to unlink wallet");
+
+      if (walletAddress === address) {
+        setLinkedAddresses(json.data.linkedAddresses);
+        setPrimaryAddress(json.data.primaryAddress);
+      } else {
+        const refetch = await fetch(`/api/profile?address=${address}`);
+        const refetchJson: ApiResponse<ProfileDto> = await refetch.json();
+        if (refetchJson.success && refetchJson.data) {
+          setLinkedAddresses(refetchJson.data.linkedAddresses);
+          setPrimaryAddress(refetchJson.data.primaryAddress);
+        }
+      }
+      addToast({ type: "success", message: "Wallet unlinked" });
+    } catch (err: unknown) {
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Failed to unlink wallet. Please try again." });
+    } finally {
+      setUnlinkingAddress(null);
+    }
+  };
+
+  if (hasMounted && primaryAddress !== address) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-text-tertiary" />
+      </div>
+    );
+  }
+
+  const listedItems = Object.values(storeListings).filter((l) => accountAddresses.includes(l.sellerAddress));
 
   const tabCounts: Record<Tab, number> = {
     Collected: collected.length,
@@ -254,9 +337,46 @@ export default function ProfilePage({ params }: { params: { address: string } })
                 <p className="text-sm text-text-secondary mt-2 max-w-md">{profile.bio}</p>
               )}
               <div className="flex items-center gap-2 mt-2">
-                <Badge variant="sol"><span className="flex items-center gap-1"><ChainIcon chain="solana" size={11} /> Solana</span></Badge>
-                <Badge variant="btc"><span className="flex items-center gap-1"><ChainIcon chain="bitcoin" size={11} /> Bitcoin</span></Badge>
+                {accountChains.has("solana") && (
+                  <Badge variant="sol"><span className="flex items-center gap-1"><ChainIcon chain="solana" size={11} /> Solana</span></Badge>
+                )}
+                {accountChains.has("bitcoin") && (
+                  <Badge variant="btc"><span className="flex items-center gap-1"><ChainIcon chain="bitcoin" size={11} /> Bitcoin</span></Badge>
+                )}
               </div>
+
+              {isOwnProfile && (
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  {accountWallets.map((w) => (
+                    <div
+                      key={w.address}
+                      className="flex items-center gap-1.5 rounded-full border border-border-default bg-bg-elevated px-2.5 py-1 text-xs text-text-secondary"
+                    >
+                      <ChainIcon chain={w.chain} size={11} />
+                      <span className="font-mono">{w.address.slice(0, 4)}...{w.address.slice(-4)}</span>
+                      {w.isPrimary && <span className="text-text-tertiary">Primary</span>}
+                      {accountWallets.length > 1 && (
+                        <button
+                          onClick={() => handleUnlink(w.address)}
+                          disabled={unlinkingAddress === w.address}
+                          aria-label={`Unlink ${w.address}`}
+                          className="text-text-tertiary hover:text-semantic-error transition-colors"
+                        >
+                          {unlinkingAddress === w.address ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <LinkWalletButton
+                    address={address}
+                    linkedAddresses={linkedAddresses}
+                    onLinked={(p) => {
+                      setLinkedAddresses(p.linkedAddresses);
+                      setPrimaryAddress(p.primaryAddress);
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">

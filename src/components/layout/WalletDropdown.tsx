@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { Copy, LogOut } from "lucide-react";
+import { Copy, LogOut, Wallet } from "lucide-react";
 import { useWalletStore } from "@/store/walletStore";
 import { usePathname, useRouter } from "next/navigation";
 
 export function WalletDropdown({ onClose }: { onClose: () => void }) {
-  const { solanaAddress, btcAddress, disconnectAll } = useWalletStore();
+  const { solanaAddress, btcAddress, disconnectAll, openModal } = useWalletStore();
   const address = solanaAddress || btcAddress || "";
   const ref = useRef<HTMLDivElement | null>(null);
   const [activeIdx, setActiveIdx] = React.useState<number>(-1);
@@ -92,6 +92,15 @@ export function WalletDropdown({ onClose }: { onClose: () => void }) {
         ))}
 
         <div className="border-t border-border-subtle my-2" />
+
+        {(!solanaAddress || !btcAddress) && (
+          <button
+            onClick={() => { openModal(!solanaAddress ? "solana" : "bitcoin"); onClose(); }}
+            className="w-full text-left px-3 py-2 hover:bg-bg-highlight rounded-md flex items-center gap-2 text-text-primary text-sm"
+          >
+            <Wallet className="w-4 h-4" /> Connect {!solanaAddress ? "Solana" : "Bitcoin"} wallet
+          </button>
+        )}
 
         <button onClick={() => { navigator.clipboard.writeText(address); onClose(); }} className="w-full text-left px-3 py-2 hover:bg-bg-highlight rounded-md flex items-center gap-2 text-text-primary text-sm">
           <Copy className="w-4 h-4" /> Copy address
