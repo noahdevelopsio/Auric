@@ -1,37 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { validateSolanaAddress, validateProfile } from "@/lib/utils/validation";
+import { detectAddressChain, validateProfile } from "@/lib/utils/validation";
 import { verifyWalletAuth } from "@/lib/auth/walletAuth";
-import { AVATAR_GRADIENTS, BANNER_GRADIENTS, DEFAULT_PROFILE } from "@/store/profileStore";
+import { verifyBitcoinWalletAuth } from "@/lib/auth/bitcoinAuth";
+import { findAccount, getOrCreateAccount, toProfileDto } from "@/lib/supabase/accounts";
+import { AVATAR_GRADIENTS, BANNER_GRADIENTS } from "@/store/profileStore";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import type { ApiResponse } from "@/types/api";
+import type { ProfileDto } from "@/types/account";
 
 const AUTH_ACTION = "update profile";
-
-interface ProfileDto {
-  address: string;
-  displayName: string;
-  bio: string;
-  avatarGradient: string;
-  bannerGradient: string;
-}
-
-interface ProfileRow {
-  display_name: string | null;
-  bio: string | null;
-  avatar_gradient: string | null;
-  banner_gradient: string | null;
-}
-
-function toDto(address: string, row: ProfileRow | null): ProfileDto {
-  return {
-    address,
-    displayName: row?.display_name ?? DEFAULT_PROFILE.displayName,
-    bio: row?.bio ?? DEFAULT_PROFILE.bio,
-    avatarGradient: row?.avatar_gradient ?? DEFAULT_PROFILE.avatarGradient,
-    bannerGradient: row?.banner_gradient ?? DEFAULT_PROFILE.bannerGradient,
-  };
-}
 
 export async function GET(request: NextRequest) {
   const limited = await rateLimit(request, "profile");
@@ -45,23 +23,21 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const addressError = validateSolanaAddress(address);
-  if (addressError) {
-    return NextResponse.json<ApiResponse<never>>({ success: false, error: addressError }, { status: 400 });
+  const chain = detectAddressChain(address);
+  if (!chain) {
+    return NextResponse.json<ApiResponse<never>>({ success: false, error: "Invalid wallet address" }, { status: 400 });
   }
 
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("display_name, bio, avatar_gradient, banner_gradient")
-    .eq("wallet_address", address)
-    .maybeSingle();
-
-  if (error) {
-    return NextResponse.json<ApiResponse<never>>({ success: false, error: error.message }, { status: 500 });
+  try {
+    const account = await findAccount(supabase, address);
+    return NextResponse.json<ApiResponse<ProfileDto>>({ success: true, data: toProfileDto(address, account) });
+  } catch (err: unknown) {
+    return NextResponse.json<ApiResponse<never>>(
+      { success: false, error: err instanceof Error ? err.message : "Failed to load profile" },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json<ApiResponse<ProfileDto>>({ success: true, data: toDto(address, data) });
 }
 
 export async function PATCH(request: NextRequest) {
@@ -93,12 +69,15 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const addressError = validateSolanaAddress(address);
-  if (addressError) {
-    return NextResponse.json<ApiResponse<never>>({ success: false, error: addressError }, { status: 400 });
+  const chain = detectAddressChain(address);
+  if (!chain) {
+    return NextResponse.json<ApiResponse<never>>({ success: false, error: "Invalid wallet address" }, { status: 400 });
   }
 
-  const authError = verifyWalletAuth({ action: AUTH_ACTION, address, signature, timestamp });
+  const authError =
+    chain === "solana"
+      ? verifyWalletAuth({ action: AUTH_ACTION, address, signature, timestamp })
+      : verifyBitcoinWalletAuth({ action: AUTH_ACTION, address, signature, timestamp });
   if (authError) {
     return NextResponse.json<ApiResponse<never>>({ success: false, error: authError }, { status: 401 });
   }
@@ -120,7 +99,6 @@ export async function PATCH(request: NextRequest) {
   }
 
   const update: Record<string, unknown> = {
-    wallet_address: address,
     updated_at: new Date().toISOString(),
   };
   if (displayName !== undefined) update.display_name = displayName;
@@ -129,15 +107,18 @@ export async function PATCH(request: NextRequest) {
   if (bannerGradient !== undefined) update.banner_gradient = bannerGradient;
 
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("profiles")
-    .upsert(update, { onConflict: "wallet_address" })
-    .select("display_name, bio, avatar_gradient, banner_gradient")
-    .single();
+  try {
+    const account = await getOrCreateAccount(supabase, address, chain);
 
-  if (error) {
-    return NextResponse.json<ApiResponse<never>>({ success: false, error: error.message }, { status: 500 });
+    const { error } = await supabase.from("accounts").update(update).eq("id", account.accountId);
+    if (error) throw new Error(error.message);
+
+    const updated = await findAccount(supabase, address);
+    return NextResponse.json<ApiResponse<ProfileDto>>({ success: true, data: toProfileDto(address, updated) });
+  } catch (err: unknown) {
+    return NextResponse.json<ApiResponse<never>>(
+      { success: false, error: err instanceof Error ? err.message : "Failed to update profile" },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json<ApiResponse<ProfileDto>>({ success: true, data: toDto(address, data) });
 }
