@@ -51,6 +51,10 @@ export function MobileBottomNav() {
             <span className="relative inline-flex items-center justify-center">
               <User className="h-5 w-5" />
               {profileActive && <span className="absolute -bottom-1 h-0.5 w-2 rounded-full bg-sol-500" />}
+              <span className="absolute -top-0.5 -right-1 flex items-center gap-0.5">
+                {solanaAddress && <span className="w-1.5 h-1.5 rounded-full bg-sol-500" aria-label="Solana connected" />}
+                {btcAddress && <span className="w-1.5 h-1.5 rounded-full bg-btc-500" aria-label="Bitcoin connected" />}
+              </span>
             </span>
             <span>Profile</span>
           </Link>

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { X, MessageCircleMore, LogOut } from "lucide-react";
+import { X, MessageCircleMore, LogOut, Wallet } from "lucide-react";
 import { AuricGemLogo } from "@/components/ui/AuricLogo";
 import { useWalletStore } from "@/store/walletStore";
 import { useHasMounted } from "@/hooks/useHasMounted";
@@ -10,7 +10,7 @@ import { useHasMounted } from "@/hooks/useHasMounted";
 export function MobileMenu({ open, onClose, onOpenWallet }: { open: boolean; onClose: () => void; onOpenWallet: () => void }) {
   const [visible, setVisible] = useState(open);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const { solanaAddress, btcAddress, disconnectAll } = useWalletStore();
+  const { solanaAddress, btcAddress, disconnectAll, openModal } = useWalletStore();
   const hasMounted = useHasMounted();
   const address = hasMounted ? (solanaAddress || btcAddress) : null;
 
@@ -87,6 +87,14 @@ export function MobileMenu({ open, onClose, onOpenWallet }: { open: boolean; onC
               >
                 View Profile
               </Link>
+              {(!solanaAddress || !btcAddress) && (
+                <button
+                  onClick={() => { openModal(!solanaAddress ? "solana" : "bitcoin"); onClose(); }}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-md border border-border-default px-4 font-medium text-text-primary transition-colors hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+                >
+                  <Wallet className="h-4 w-4" /> Connect {!solanaAddress ? "Solana" : "Bitcoin"} wallet
+                </button>
+              )}
               <button
                 onClick={() => { disconnectAll(); onClose(); }}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-md px-4 font-medium text-semantic-error transition-colors hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
