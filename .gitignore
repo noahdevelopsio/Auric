@@ -33,6 +33,13 @@ yarn-error.log*
 .env
 .env*.local
 
+# wallet keypairs (NEVER commit secret keys)
+*-wallet.json
+platform-wallet.json
+
+# local-only admin/ops scripts
+/scripts
+
 # vercel
 .vercel
 
