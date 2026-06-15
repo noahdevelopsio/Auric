@@ -379,7 +379,7 @@ export default function ProfilePage({ params }: { params: { address: string } })
               )}
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div className="grid grid-cols-4 gap-2 sm:gap-3 text-sm">
               {[
                 { label: "Collected", value: loadingCollected ? "—" : String(collected.length) },
                 { label: "Created", value: loadingCreated ? "—" : String(created.length) },
@@ -388,10 +388,10 @@ export default function ProfilePage({ params }: { params: { address: string } })
               ].map((stat) => (
                 <div
                   key={stat.label}
-                  className="rounded-xl border border-border-subtle bg-bg-elevated px-4 py-3 text-center"
+                  className="rounded-xl border border-border-subtle bg-bg-elevated px-2 py-2 sm:px-4 sm:py-3 text-center"
                 >
                   <div className="font-display font-semibold text-text-primary">{stat.value}</div>
-                  <div className="text-text-tertiary text-xs mt-0.5">{stat.label}</div>
+                  <div className="text-text-tertiary text-[10px] sm:text-xs mt-0.5">{stat.label}</div>
                 </div>
               ))}
             </div>

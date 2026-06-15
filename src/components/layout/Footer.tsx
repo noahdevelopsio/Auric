@@ -5,8 +5,8 @@ import { AuricGemLogo } from "@/components/ui/AuricLogo";
 
 export function Footer() {
   return (
-    <footer className="border-t border-border-subtle bg-bg-base/95">
-      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+    <footer className="border-t border-border-subtle bg-bg-base/95 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-16 lg:px-8 lg:py-20">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           <div>
             <Link href="/" className="mb-4 inline-flex">
@@ -34,7 +34,7 @@ export function Footer() {
             </div>
           </div>
 
-          <div>
+          <div className="hidden md:block">
             <h4 className="mb-4 text-xs font-medium uppercase tracking-[0.08em] text-text-secondary">Platform</h4>
             <ul className="space-y-3 text-sm text-text-secondary">
               <li><Link href="/explore" className="transition-colors hover:text-text-primary">Explore</Link></li>
@@ -44,7 +44,7 @@ export function Footer() {
             </ul>
           </div>
 
-          <div>
+          <div className="hidden md:block">
             <h4 className="mb-4 text-xs font-medium uppercase tracking-[0.08em] text-text-secondary">Resources</h4>
             <ul className="space-y-3 text-sm text-text-secondary">
               <li><Link href="/docs" className="transition-colors hover:text-text-primary">Documentation</Link></li>
@@ -55,7 +55,7 @@ export function Footer() {
             </ul>
           </div>
 
-          <div>
+          <div className="hidden md:block">
             <h4 className="mb-4 text-xs font-medium uppercase tracking-[0.08em] text-text-secondary">Company</h4>
             <ul className="space-y-3 text-sm text-text-secondary">
               <li><Link href="/about" className="transition-colors hover:text-text-primary">About</Link></li>

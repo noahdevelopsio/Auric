@@ -43,7 +43,7 @@ export default function RootLayout({
       >
         <SolanaProviders>
           <Navbar />
-          <main className="min-h-screen pt-14 lg:pt-16">
+          <main className="min-h-screen pt-14 lg:pt-16 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
             {children}
           </main>
         </SolanaProviders>

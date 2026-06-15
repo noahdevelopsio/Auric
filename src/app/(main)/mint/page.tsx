@@ -343,7 +343,7 @@ export default function MintPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
+    <div className="max-w-6xl mx-auto px-4 pt-10 pb-32 lg:pb-10">
       {/* Header */}
       <div className="mb-8">
         <p className="text-xs uppercase tracking-[0.2em] text-text-tertiary mb-2">Create</p>
