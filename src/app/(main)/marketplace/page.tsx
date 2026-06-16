@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { useMarketplaceStore, Listing } from "@/store/marketplaceStore";
+import type { Listing } from "@/types/marketplace";
+import type { PaginatedResponse } from "@/types/api";
 import { useWalletStore } from "@/store/walletStore";
 import { BuyModal } from "@/components/marketplace/BuyModal";
 import { SolanaIcon, BitcoinIcon } from "@/components/ui/ChainIcon";
-import { Search, SlidersHorizontal, Tag } from "lucide-react";
+import { Search, SlidersHorizontal, Tag, Loader2 } from "lucide-react";
 
 type ChainFilter = "all" | "solana" | "bitcoin";
 type SortOrder = "recent" | "price_asc" | "price_desc";
@@ -74,15 +75,36 @@ function ListingCard({ listing, onBuy }: { listing: Listing; onBuy: (l: Listing)
 }
 
 export default function MarketplacePage() {
-  const { listings: storeListing } = useMarketplaceStore();
   const { solanaAddress, openModal } = useWalletStore();
 
   const [chainFilter, setChainFilter] = useState<ChainFilter>("all");
   const [sort, setSort] = useState<SortOrder>("recent");
   const [search, setSearch] = useState("");
   const [activeBuy, setActiveBuy] = useState<Listing | null>(null);
+  const [allListings, setAllListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const allListings = Object.values(storeListing);
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const res = await fetch("/api/marketplace/listings?status=active&limit=100");
+        const json: PaginatedResponse<Listing> = await res.json();
+        if (cancelled) return;
+        if (json.success) setAllListings(json.data ?? []);
+      } catch {
+        // best-effort; leave listings empty on failure
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filtered = allListings
     .filter((l) => chainFilter === "all" || l.chain === chainFilter)
@@ -170,7 +192,11 @@ export default function MarketplacePage() {
       </div>
 
       {/* Grid */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-6 w-6 animate-spin text-text-tertiary" />
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center gap-4 py-24 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-bg-elevated">
             <Tag className="h-7 w-7 text-text-tertiary" />
@@ -195,6 +221,7 @@ export default function MarketplacePage() {
         <BuyModal
           isOpen={!!activeBuy}
           onClose={() => setActiveBuy(null)}
+          id={activeBuy.id}
           mintAddress={activeBuy.mintAddress}
           listingAddress={activeBuy.listingAddress}
           nftName={activeBuy.nftName}

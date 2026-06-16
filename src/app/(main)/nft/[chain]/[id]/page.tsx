@@ -12,8 +12,9 @@ import { BuyModal } from "@/components/marketplace/BuyModal";
 import { BitcoinListingModal } from "@/components/marketplace/BitcoinListingModal";
 import { BitcoinBuyModal } from "@/components/marketplace/BitcoinBuyModal";
 import { cancelListing, DEFAULT_ROYALTY_BPS } from "@/lib/marketplace/solana";
-import { cancelListing as cancelBitcoinListing, SATS_PER_BTC } from "@/lib/marketplace/bitcoin";
+import { cancelListing as cancelBitcoinListing } from "@/lib/marketplace/bitcoin";
 import { signBitcoinMessage } from "@/lib/bitcoin/signMessage";
+import { buildAuthMessage } from "@/lib/auth/walletAuth";
 import { recordActivity } from "@/lib/utils/activity";
 import { fetchSolanaAsset, type SolanaAssetAttribute } from "@/lib/nft/solanaAssets";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
@@ -21,7 +22,7 @@ import { PublicKey } from "@solana/web3.js";
 import { Copy, ExternalLink, FileQuestion, Loader2, Tag } from "lucide-react";
 import { shortenAddress, formatRelativeTime } from "@/lib/utils/format";
 import type { OrdinalsInscription } from "@/types/ordinals";
-import type { OrdinalListing } from "@/types/marketplace";
+import type { Listing } from "@/types/marketplace";
 import type { ApiResponse, PaginatedResponse } from "@/types/api";
 
 const TABS = ["Details", "Activity", "Collection"] as const;
@@ -141,34 +142,21 @@ export default function NFTDetailPage({ params }: { params: { chain: string; id:
     };
   }, [chain, id]);
 
-  // Bitcoin listings are off-chain rows in `ordinal_listings`, so sync the
-  // current active listing (if any) into the marketplace store for this page
-  // and the marketplace grid to stay consistent.
+  // Listings are stored server-side (`ordinal_listings` / `solana_listings`),
+  // so sync the current active listing (if any) into the marketplace store
+  // for this page and the marketplace grid to stay consistent across visitors.
   useEffect(() => {
-    if (chain !== "bitcoin") return;
     let cancelled = false;
 
     const loadListing = async () => {
       try {
-        const res = await fetch(`/api/marketplace/listings?inscription_id=${encodeURIComponent(id)}&status=active&limit=1`);
-        const json: PaginatedResponse<OrdinalListing> = await res.json();
+        const param = chain === "bitcoin" ? `inscription_id=${encodeURIComponent(id)}` : `mint_address=${encodeURIComponent(id)}`;
+        const res = await fetch(`/api/marketplace/listings?chain=${chain}&${param}&status=active&limit=1`);
+        const json: PaginatedResponse<Listing> = await res.json();
         if (cancelled) return;
         const found = json.success ? json.data?.[0] : undefined;
         if (found) {
-          addListing({
-            mintAddress: id,
-            nftName: found.nftName ?? "Untitled",
-            nftImage: found.nftImage,
-            chain: "bitcoin",
-            sellerAddress: found.sellerAddress,
-            priceSOL: found.priceSats / SATS_PER_BTC,
-            priceSats: found.priceSats,
-            royaltyBps: 0,
-            expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
-            txSignature: "",
-            listingAddress: found.id,
-            listedAt: new Date(found.createdAt).getTime(),
-          });
+          addListing(found);
         } else {
           removeListing(id);
         }
@@ -211,6 +199,27 @@ export default function NFTDetailPage({ params }: { params: { chain: string; id:
       });
       removeListing(id);
       addToast({ type: "success", message: `Listing for ${asset?.name ?? "this NFT"} cancelled` });
+
+      if (listing.id && wallet.signMessage) {
+        try {
+          const timestamp = Date.now();
+          const message = buildAuthMessage("cancel listing", solanaAddress, timestamp);
+          const signatureBytes = await wallet.signMessage(new TextEncoder().encode(message));
+          await fetch(`/api/marketplace/listings/${listing.id}/cancel`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chain: "solana",
+              address: solanaAddress,
+              signature: Buffer.from(signatureBytes).toString("base64"),
+              timestamp,
+            }),
+          });
+        } catch {
+          // best-effort; the on-chain cancellation already succeeded
+        }
+      }
+
       recordActivity({
         type: "delist",
         chain: "solana",
@@ -626,6 +635,7 @@ export default function NFTDetailPage({ params }: { params: { chain: string; id:
           <BuyModal
             isOpen={buyOpen}
             onClose={() => setBuyOpen(false)}
+            id={listing?.id}
             mintAddress={id}
             listingAddress={listing?.listingAddress ?? ""}
             nftName={asset.name}

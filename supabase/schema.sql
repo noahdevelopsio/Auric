@@ -99,6 +99,32 @@ create index if not exists ordinal_listings_status_idx on public.ordinal_listing
 create unique index if not exists ordinal_listings_active_inscription_idx
   on public.ordinal_listings (inscription_id) where (status = 'active');
 
+-- Solana listings: off-chain mirror of an Auction House listing, so the
+-- marketplace and NFT detail pages can show listings to every visitor (not
+-- just the browser that created them via localStorage).
+create table if not exists public.solana_listings (
+  id uuid primary key default gen_random_uuid(),
+  mint_address text not null,
+  listing_address text not null,
+  seller_address text not null,
+  price_lamports bigint not null check (price_lamports > 0),
+  royalty_bps integer not null default 0,
+  tx_signature text not null,
+  status text not null default 'active' check (status in ('active', 'sold', 'cancelled')),
+  nft_name text,
+  nft_image text,
+  buyer_address text,
+  sale_tx_signature text,
+  sold_at timestamptz,
+  expires_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists solana_listings_mint_idx on public.solana_listings (mint_address);
+create index if not exists solana_listings_status_idx on public.solana_listings (status);
+create unique index if not exists solana_listings_active_mint_idx
+  on public.solana_listings (mint_address) where (status = 'active');
+
 -- Row Level Security: all writes go through API routes using the service
 -- role key (which bypasses RLS), so these policies only need to cover
 -- public read access.
@@ -107,6 +133,7 @@ alter table public.account_wallets enable row level security;
 alter table public.collections enable row level security;
 alter table public.activity enable row level security;
 alter table public.ordinal_listings enable row level security;
+alter table public.solana_listings enable row level security;
 
 create policy "Accounts are publicly readable" on public.accounts
   for select using (true);
@@ -123,6 +150,9 @@ create policy "Activity is publicly readable" on public.activity
 create policy "Ordinal listings are publicly readable" on public.ordinal_listings
   for select using (true);
 
+create policy "Solana listings are publicly readable" on public.solana_listings
+  for select using (true);
+
 -- Table-level grants: the service role (used by API routes) bypasses RLS
 -- but still needs base privileges, and anon/authenticated need SELECT for
 -- the public-read policies above to take effect.
@@ -131,11 +161,13 @@ grant select, insert, update, delete on public.account_wallets to service_role;
 grant select, insert, update, delete on public.collections to service_role;
 grant select, insert on public.activity to service_role;
 grant select, insert, update on public.ordinal_listings to service_role;
+grant select, insert, update on public.solana_listings to service_role;
 grant select on public.accounts to anon, authenticated;
 grant select on public.account_wallets to anon, authenticated;
 grant select on public.collections to anon, authenticated;
 grant select on public.activity to anon, authenticated;
 grant select on public.ordinal_listings to anon, authenticated;
+grant select on public.solana_listings to anon, authenticated;
 
 -- Storage buckets for uploaded media and generated NFT metadata JSON.
 insert into storage.buckets (id, name, public)

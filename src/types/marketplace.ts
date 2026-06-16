@@ -16,6 +16,43 @@ export interface OrdinalListing {
   createdAt: string;
 }
 
+export interface SolanaListing {
+  id: string;
+  mintAddress: string;
+  listingAddress: string;
+  sellerAddress: string;
+  priceLamports: number;
+  royaltyBps: number;
+  txSignature: string;
+  status: "active" | "sold" | "cancelled";
+  nftName?: string;
+  nftImage?: string;
+  buyerAddress?: string;
+  saleTxSignature?: string;
+  soldAt?: string;
+  expiresAt?: string;
+  createdAt: string;
+}
+
+// Chain-agnostic display shape used throughout the frontend (marketplace grid,
+// NFT detail "Buy Now" box, profile "Listed" tab) and returned by
+// /api/marketplace/listings.
+export interface Listing {
+  id?: string;
+  mintAddress: string;
+  nftName: string;
+  nftImage?: string;
+  chain: "solana" | "bitcoin";
+  sellerAddress: string;
+  priceSOL: number;
+  royaltyBps: number;
+  expiresAt: number;
+  txSignature: string;
+  listingAddress: string;
+  listedAt: number;
+  priceSats?: number; // exact sats for bitcoin listings; priceSOL holds priceSats/1e8 for display
+}
+
 export interface PreparedListingPsbt {
   psbt: string; // base64, unsigned
   signInputs: Record<string, number[]>; // { [ordinalsAddress]: [0] }

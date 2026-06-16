@@ -1,20 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { Listing } from "@/types/marketplace";
 
-export interface Listing {
-  mintAddress: string;
-  nftName: string;
-  nftImage?: string;
-  chain: "solana" | "bitcoin";
-  sellerAddress: string;
-  priceSOL: number;
-  royaltyBps: number;
-  expiresAt: number;
-  txSignature: string;
-  listingAddress: string;
-  listedAt: number;
-  priceSats?: number; // exact sats for bitcoin listings; priceSOL holds priceSats/1e8 for display
-}
+export type { Listing };
 
 interface MarketplaceState {
   listings: Record<string, Listing>;

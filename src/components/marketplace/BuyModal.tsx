@@ -8,6 +8,7 @@ import { useMarketplaceStore } from "@/store/marketplaceStore";
 import { useToastStore } from "@/store/toastStore";
 import { executeBuy, calcPlatformFee, calcRoyaltyFee } from "@/lib/marketplace/solana";
 import { recordActivity } from "@/lib/utils/activity";
+import { buildAuthMessage } from "@/lib/auth/walletAuth";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { CheckCircle2, ExternalLink, Loader2, ShoppingBag } from "lucide-react";
@@ -20,6 +21,7 @@ type Step = "confirm" | "signing" | "success";
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  id?: string;
   mintAddress: string;
   listingAddress: string;
   nftName: string;
@@ -30,7 +32,7 @@ interface Props {
   chain?: "solana" | "bitcoin";
 }
 
-export function BuyModal({ isOpen, onClose, mintAddress, listingAddress, nftName, nftImage, priceSOL, sellerAddress, royaltyBps, chain = "solana" }: Props) {
+export function BuyModal({ isOpen, onClose, id, mintAddress, listingAddress, nftName, nftImage, priceSOL, sellerAddress, royaltyBps, chain = "solana" }: Props) {
   const { solanaAddress } = useWalletStore();
   const { removeListing } = useMarketplaceStore();
   const { addToast } = useToastStore();
@@ -72,6 +74,30 @@ export function BuyModal({ isOpen, onClose, mintAddress, listingAddress, nftName
       setTxSig(result.txSignature);
       setStep("success");
       addToast({ type: "success", message: `You bought ${nftName} for ${priceSOL} ${currency}!` });
+
+      if (id && wallet.signMessage) {
+        try {
+          const timestamp = Date.now();
+          const message = buildAuthMessage("complete purchase", solanaAddress, timestamp);
+          const signatureBytes = await wallet.signMessage(new TextEncoder().encode(message));
+          const res = await fetch(`/api/marketplace/listings/${id}/complete`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chain: "solana",
+              buyerAddress: solanaAddress,
+              saleTxSignature: result.txSignature,
+              address: solanaAddress,
+              signature: Buffer.from(signatureBytes).toString("base64"),
+              timestamp,
+            }),
+          });
+          await res.json();
+        } catch {
+          // best-effort; the on-chain purchase already succeeded
+        }
+      }
+
       recordActivity({
         type: "sale",
         chain: "solana",

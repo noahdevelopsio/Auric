@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { verifyBitcoinWalletAuth } from "@/lib/auth/bitcoinAuth";
+import { verifyWalletAuth } from "@/lib/auth/walletAuth";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import type { ApiResponse } from "@/types/api";
 
@@ -11,6 +12,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   if (limited) return limited;
 
   let body: {
+    chain?: "solana" | "bitcoin";
     address?: string;
     signature?: string;
     timestamp?: number;
@@ -22,7 +24,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     return NextResponse.json<ApiResponse<never>>({ success: false, error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { address, signature, timestamp } = body;
+  const { chain, address, signature, timestamp } = body;
 
   if (!address || !signature || typeof timestamp !== "number") {
     return NextResponse.json<ApiResponse<never>>(
@@ -31,12 +33,52 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     );
   }
 
+  const supabase = getSupabaseAdmin();
+
+  if (chain === "solana") {
+    const authError = verifyWalletAuth({ action: AUTH_ACTION, address, signature, timestamp });
+    if (authError) {
+      return NextResponse.json<ApiResponse<never>>({ success: false, error: authError }, { status: 401 });
+    }
+
+    const { data: existing, error: existingError } = await supabase
+      .from("solana_listings")
+      .select("id, status, seller_address")
+      .eq("id", params.id)
+      .maybeSingle();
+
+    if (existingError) {
+      return NextResponse.json<ApiResponse<never>>({ success: false, error: existingError.message }, { status: 500 });
+    }
+    if (!existing) {
+      return NextResponse.json<ApiResponse<never>>({ success: false, error: "Listing not found" }, { status: 404 });
+    }
+
+    const listing = existing as { id: string; status: string; seller_address: string };
+    if (address !== listing.seller_address) {
+      return NextResponse.json<ApiResponse<never>>({ success: false, error: "address must match the listing's seller" }, { status: 403 });
+    }
+    if (listing.status !== "active") {
+      return NextResponse.json<ApiResponse<never>>({ success: false, error: "Listing is no longer active" }, { status: 409 });
+    }
+
+    const { error } = await supabase
+      .from("solana_listings")
+      .update({ status: "cancelled" })
+      .eq("id", params.id)
+      .eq("status", "active");
+
+    if (error) {
+      return NextResponse.json<ApiResponse<never>>({ success: false, error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json<ApiResponse<{ id: string }>>({ success: true, data: { id: params.id } });
+  }
+
   const authError = verifyBitcoinWalletAuth({ action: AUTH_ACTION, address, signature, timestamp });
   if (authError) {
     return NextResponse.json<ApiResponse<never>>({ success: false, error: authError }, { status: 401 });
   }
-
-  const supabase = getSupabaseAdmin();
 
   const { data: existing, error: existingError } = await supabase
     .from("ordinal_listings")

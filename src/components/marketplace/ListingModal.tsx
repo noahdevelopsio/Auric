@@ -8,6 +8,8 @@ import { useMarketplaceStore } from "@/store/marketplaceStore";
 import { useToastStore } from "@/store/toastStore";
 import { createListing, calcPlatformFee, calcRoyaltyFee, calcSellerProceeds, DEFAULT_ROYALTY_BPS } from "@/lib/marketplace/solana";
 import { recordActivity } from "@/lib/utils/activity";
+import { buildAuthMessage } from "@/lib/auth/walletAuth";
+import type { ApiResponse } from "@/types/api";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { CheckCircle2, ExternalLink, Loader2, Tag } from "lucide-react";
@@ -72,7 +74,43 @@ export function ListingModal({ isOpen, onClose, mintAddress, nftName, nftImage, 
         durationDays: duration,
         royaltyBps,
       });
+      const expiresAt = Date.now() + duration * 86_400_000;
+      const priceLamports = Math.round(priceSOL * 1_000_000_000);
+
+      let listingId: string | undefined;
+      try {
+        if (wallet.signMessage) {
+          const timestamp = Date.now();
+          const message = buildAuthMessage("list nft", solanaAddress, timestamp);
+          const signatureBytes = await wallet.signMessage(new TextEncoder().encode(message));
+          const res = await fetch("/api/marketplace/listings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chain: "solana",
+              mintAddress,
+              listingAddress: result.listingAddress,
+              priceLamports,
+              royaltyBps,
+              txSignature: result.txSignature,
+              nftName,
+              nftImage,
+              expiresAt,
+              sellerAddress: solanaAddress,
+              address: solanaAddress,
+              signature: Buffer.from(signatureBytes).toString("base64"),
+              timestamp,
+            }),
+          });
+          const json: ApiResponse<{ id: string }> = await res.json();
+          if (json.success && json.data) listingId = json.data.id;
+        }
+      } catch {
+        // best-effort; the on-chain listing already succeeded
+      }
+
       addListing({
+        id: listingId,
         mintAddress,
         nftName,
         nftImage,
@@ -80,7 +118,7 @@ export function ListingModal({ isOpen, onClose, mintAddress, nftName, nftImage, 
         sellerAddress: solanaAddress,
         priceSOL,
         royaltyBps,
-        expiresAt: Date.now() + duration * 86_400_000,
+        expiresAt,
         txSignature: result.txSignature,
         listingAddress: result.listingAddress,
         listedAt: Date.now(),

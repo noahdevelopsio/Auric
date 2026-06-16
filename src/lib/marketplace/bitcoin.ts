@@ -62,6 +62,7 @@ export async function createListing(params: CreateListingParams): Promise<{ id: 
   const auth = await signAuth('list nft', params.ordinalsAddress);
 
   return postJson<{ id: string }>('/api/marketplace/listings', {
+    chain: 'bitcoin',
     inscriptionId: params.inscriptionId,
     sellerAddress: params.ordinalsAddress,
     sellerPaymentAddress: params.paymentAddress,
@@ -75,7 +76,7 @@ export async function createListing(params: CreateListingParams): Promise<{ id: 
 
 export async function cancelListing(params: { listingId: string; sellerAddress: string }): Promise<void> {
   const auth = await signAuth('cancel listing', params.sellerAddress);
-  await postJson<{ id: string }>(`/api/marketplace/listings/${params.listingId}/cancel`, auth);
+  await postJson<{ id: string }>(`/api/marketplace/listings/${params.listingId}/cancel`, { chain: 'bitcoin', ...auth });
 }
 
 export interface ExecuteBuyParams {
@@ -121,6 +122,7 @@ export async function executeBuy(params: ExecuteBuyParams): Promise<{ txId: stri
   const auth = await signAuth('complete purchase', params.buyerOrdinalsAddress);
 
   await postJson<{ id: string }>(`/api/marketplace/listings/${params.listingId}/complete`, {
+    chain: 'bitcoin',
     buyerAddress: params.buyerOrdinalsAddress,
     saleTxId: txId,
     ...auth,

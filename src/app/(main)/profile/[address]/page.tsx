@@ -21,8 +21,9 @@ import { fetchSolanaOwnedAssets, fetchSolanaCreatedAssets } from "@/lib/nft/sola
 import { buildAuthMessage } from "@/lib/auth/walletAuth";
 import { signBitcoinMessage } from "@/lib/bitcoin/signMessage";
 import { detectAddressChain } from "@/lib/utils/validation";
-import type { ApiResponse } from "@/types/api";
+import type { ApiResponse, PaginatedResponse } from "@/types/api";
 import type { OrdinalsAddressInfo } from "@/types/ordinals";
+import type { Listing } from "@/types/marketplace";
 import type { LinkedWallet, ProfileDto } from "@/types/account";
 
 interface OwnedItem {
@@ -47,7 +48,7 @@ export default function ProfilePage({ params }: { params: { address: string } })
   const [delistingMint, setDelistingMint] = useState<string | null>(null);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const { solanaAddress, btcAddress } = useWalletStore();
-  const { listings: storeListings, removeListing, getListing } = useMarketplaceStore();
+  const { listings: storeListings, removeListing } = useMarketplaceStore();
   const { addToast } = useToastStore();
   const { connection } = useConnection();
   const wallet = useWallet();
@@ -62,6 +63,7 @@ export default function ProfilePage({ params }: { params: { address: string } })
   const [linkedAddresses, setLinkedAddresses] = useState<LinkedWallet[]>([]);
   const [primaryAddress, setPrimaryAddress] = useState(address);
   const [unlinkingAddress, setUnlinkingAddress] = useState<string | null>(null);
+  const [apiListings, setApiListings] = useState<Listing[]>([]);
 
   const accountWallets: LinkedWallet[] =
     linkedAddresses.length > 0 ? linkedAddresses : [{ address, chain: detectAddressChain(address) ?? "solana", isPrimary: true }];
@@ -184,10 +186,39 @@ export default function ProfilePage({ params }: { params: { address: string } })
     };
   }, [address, isOwnProfile, linkedAddresses]);
 
-  const handleDelist = async (item: { name: string; mintAddress: string }) => {
+  // Listings live in `ordinal_listings` / `solana_listings`, so fetch the
+  // active listings for each linked wallet to populate the "Listed" tab
+  // for any visitor, not just the same-session lister.
+  useEffect(() => {
+    let cancelled = false;
+    const wallets: LinkedWallet[] =
+      linkedAddresses.length > 0
+        ? linkedAddresses
+        : [{ address, chain: detectAddressChain(address) ?? "solana", isPrimary: true }];
+
+    async function load() {
+      const results = await Promise.all(
+        wallets.map(async (w) => {
+          try {
+            const res = await fetch(`/api/marketplace/listings?chain=${w.chain}&seller_address=${encodeURIComponent(w.address)}&status=active&limit=100`);
+            const json: PaginatedResponse<Listing> = await res.json();
+            return json.success ? json.data ?? [] : [];
+          } catch {
+            return [];
+          }
+        })
+      );
+      if (!cancelled) setApiListings(results.flat());
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [address, linkedAddresses]);
+
+  const handleDelist = async (item: Listing) => {
     if (!solanaAddress || delistingMint) return;
-    const listing = getListing(item.mintAddress);
-    if (!listing) return;
     setDelistingMint(item.mintAddress);
     try {
       await cancelListing({
@@ -195,10 +226,31 @@ export default function ProfilePage({ params }: { params: { address: string } })
         wallet,
         sellerPublicKey: new PublicKey(solanaAddress),
         mintAddress: item.mintAddress,
-        listingAddress: listing.listingAddress,
+        listingAddress: item.listingAddress,
       });
       removeListing(item.mintAddress);
-      addToast({ type: "success", message: `Listing for ${item.name} cancelled` });
+      setApiListings((prev) => prev.filter((l) => l.mintAddress !== item.mintAddress));
+      addToast({ type: "success", message: `Listing for ${item.nftName} cancelled` });
+
+      if (item.id && wallet.signMessage) {
+        try {
+          const timestamp = Date.now();
+          const message = buildAuthMessage("cancel listing", solanaAddress, timestamp);
+          const signatureBytes = await wallet.signMessage(new TextEncoder().encode(message));
+          await fetch(`/api/marketplace/listings/${item.id}/cancel`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chain: "solana",
+              address: solanaAddress,
+              signature: Buffer.from(signatureBytes).toString("base64"),
+              timestamp,
+            }),
+          });
+        } catch {
+          // best-effort; the on-chain cancellation already succeeded
+        }
+      }
     } catch (err: unknown) {
       addToast({ type: "error", message: err instanceof Error ? err.message : "Failed to delist. Please try again." });
     } finally {
@@ -270,7 +322,11 @@ export default function ProfilePage({ params }: { params: { address: string } })
     );
   }
 
-  const listedItems = Object.values(storeListings).filter((l) => accountAddresses.includes(l.sellerAddress));
+  const apiMints = new Set(apiListings.map((l) => l.mintAddress));
+  const localOnlyListings = Object.values(storeListings).filter(
+    (l) => accountAddresses.includes(l.sellerAddress) && !apiMints.has(l.mintAddress)
+  );
+  const listedItems = [...apiListings, ...localOnlyListings];
 
   const tabCounts: Record<Tab, number> = {
     Collected: collected.length,
@@ -495,7 +551,7 @@ export default function ProfilePage({ params }: { params: { address: string } })
                         size="sm"
                         className="w-full flex items-center justify-center gap-1.5"
                         disabled={delistingMint === item.mintAddress}
-                        onClick={() => handleDelist({ name: item.nftName, mintAddress: item.mintAddress })}
+                        onClick={() => handleDelist(item)}
                       >
                         {delistingMint === item.mintAddress && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                         {delistingMint === item.mintAddress ? "Delisting…" : "Delist"}
