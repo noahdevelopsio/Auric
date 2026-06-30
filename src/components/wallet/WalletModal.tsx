@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { useWalletStore } from "@/store/walletStore";
 import { Button } from "@/components/ui/Button";
-import { Wallet, Loader2, CheckCircle2, Lock } from "lucide-react";
+import { Wallet, Loader2, CheckCircle2, Lock, Smartphone } from "lucide-react";
 import { WalletIcon, SolanaChainIcon, BitcoinChainIcon } from "@/components/wallet/WalletIcons";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletReadyState, type WalletName } from "@solana/wallet-adapter-base";
@@ -13,8 +13,6 @@ import { connectBitcoinWallet } from "@/lib/bitcoin/wallet";
 import type { ApiResponse } from "@/types/api";
 import type { Profile } from "@/store/profileStore";
 
-// New wallet connections (no display name set yet) land on their profile
-// page with the edit modal open, so they can set up their profile right away.
 async function redirectIfNewProfile(address: string, router: ReturnType<typeof useRouter>) {
   try {
     const res = await fetch(`/api/profile?address=${address}`);
@@ -29,65 +27,35 @@ const SOLANA_WALLET_NAMES: Record<string, WalletName> = {
   phantom: "Phantom" as WalletName,
   backpack: "Backpack" as WalletName,
   solflare: "Solflare" as WalletName,
+  walletconnect: "WalletConnect" as WalletName,
 };
 
-interface WalletOption {
-  id: string;
-  name: string;
-  detected: boolean;
-}
+// Deep links open the wallet's in-app browser at the current page URL,
+// so the wallet is injected and the user can connect normally.
+const MOBILE_DEEP_LINKS: Record<string, (url: string) => string> = {
+  phantom: (url) => `https://phantom.app/ul/browse/${encodeURIComponent(url)}`,
+  solflare: (url) => `https://solflare.com/ul/v1/browse/${encodeURIComponent(url)}`,
+  backpack: (url) => `https://backpack.app/ul/v1/browse/${encodeURIComponent(url)}`,
+};
 
-function useDetectedWallets() {
-  const [detected, setDetected] = useState<Record<string, boolean>>({
-    phantom: false,
-    backpack: false,
-    solflare: false,
-    xverse: false,
-    leather: false,
-  });
-
-  useEffect(() => {
-    interface InjectedWallet {
-      phantom?: { solana?: { isPhantom?: boolean } };
-      solana?: { isPhantom?: boolean };
-      backpack?: { isBackpack?: boolean };
-      solflare?: { isSolflare?: boolean };
-      XverseProviders?: { BitcoinProvider?: unknown };
-      BitcoinProvider?: unknown;
-      LeatherProvider?: unknown;
-    }
-    const check = () => {
-      const w = window as Window & InjectedWallet;
-      setDetected({
-        phantom: !!(w.phantom?.solana?.isPhantom || w.solana?.isPhantom),
-        backpack: !!(w.backpack?.isBackpack),
-        solflare: !!(w.solflare?.isSolflare),
-        xverse: !!(w.XverseProviders?.BitcoinProvider || w.BitcoinProvider),
-        leather: !!(w.LeatherProvider),
-      });
-    };
-
-    if (document.readyState === "complete") {
-      check();
-    } else {
-      window.addEventListener("load", check);
-      return () => window.removeEventListener("load", check);
-    }
-  }, []);
-
-  return detected;
-}
-
-const SOLANA_WALLETS: Omit<WalletOption, "detected">[] = [
+const SOLANA_WALLETS = [
   { id: "phantom", name: "Phantom" },
   { id: "backpack", name: "Backpack" },
   { id: "solflare", name: "Solflare" },
 ];
 
-const BITCOIN_WALLETS: Omit<WalletOption, "detected">[] = [
+const BITCOIN_WALLETS = [
   { id: "xverse", name: "Xverse" },
   { id: "leather", name: "Leather" },
 ];
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    setIsMobile(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+  }, []);
+  return isMobile;
+}
 
 export const WalletModal: React.FC = () => {
   const router = useRouter();
@@ -102,23 +70,42 @@ export const WalletModal: React.FC = () => {
     btcAddress,
   } = useWalletStore();
   const solanaWallet = useWallet();
-  const detected = useDetectedWallets();
+  const isMobile = useIsMobile();
   const [connecting, setConnecting] = useState<string | null>(null);
   const [pendingSolanaWallet, setPendingSolanaWallet] = useState<string | null>(null);
   const [error, setError] = useState("");
 
+  // Check adapter readyState from the wallet adapter context — covers both
+  // browser extension detection and Wallet Standard auto-discovered wallets
+  // (e.g. Backpack, Phantom, Solflare in their own in-app browsers).
+  const getReadyState = (walletId: string): WalletReadyState => {
+    const name = SOLANA_WALLET_NAMES[walletId];
+    return solanaWallet.wallets.find((w) => w.adapter.name === name)?.readyState ?? WalletReadyState.NotDetected;
+  };
+
+  const isDetected = (walletId: string) => getReadyState(walletId) === WalletReadyState.Installed;
+
+  const hasWalletConnect = solanaWallet.wallets.some((w) => w.adapter.name === "WalletConnect");
+
   const handleSolanaConnect = (walletId: string) => {
     setError("");
-    const name = SOLANA_WALLET_NAMES[walletId];
-    const target = solanaWallet.wallets.find((w) => w.adapter.name === name);
-    if (!target || target.readyState === WalletReadyState.NotDetected || target.readyState === WalletReadyState.Unsupported) {
+    const readyState = getReadyState(walletId);
+
+    if (readyState === WalletReadyState.NotDetected || readyState === WalletReadyState.Unsupported) {
+      // On mobile, redirect into the wallet's in-app browser instead of
+      // telling the user to install an extension they can't install.
+      if (isMobile && MOBILE_DEEP_LINKS[walletId]) {
+        window.location.href = MOBILE_DEEP_LINKS[walletId](window.location.href);
+        return;
+      }
       const label = SOLANA_WALLETS.find((w) => w.id === walletId)?.name ?? "Wallet";
       setError(`${label} not detected. Install the extension and refresh the page.`);
       return;
     }
+
     setConnecting(walletId);
     setPendingSolanaWallet(walletId);
-    solanaWallet.select(name);
+    solanaWallet.select(SOLANA_WALLET_NAMES[walletId]);
   };
 
   // Selecting a wallet adapter is async (state update), so connect once the
@@ -256,13 +243,36 @@ export const WalletModal: React.FC = () => {
               <span className="flex-1 text-sm font-medium text-text-primary">{w.name}</span>
               {connecting === w.id ? (
                 <Loader2 className="h-4 w-4 animate-spin text-text-tertiary" />
-              ) : detected[w.id] ? (
+              ) : isDetected(w.id) ? (
                 <span className="rounded-full bg-semantic-successBg px-2 py-0.5 text-xs text-semantic-success">
                   Detected
+                </span>
+              ) : isMobile && MOBILE_DEEP_LINKS[w.id] ? (
+                <span className="flex items-center gap-1 text-xs text-text-tertiary">
+                  <Smartphone className="h-3 w-3" /> Open app
                 </span>
               ) : null}
             </button>
           ))}
+
+          {/* WalletConnect — only rendered when the adapter is registered
+              (i.e. NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is set) */}
+          {hasWalletConnect && (
+            <button
+              onClick={() => handleSolanaConnect("walletconnect")}
+              disabled={!!connecting}
+              className="flex h-14 w-full items-center gap-3 rounded-lg px-4 text-left transition-colors hover:bg-bg-elevated focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong disabled:opacity-50"
+            >
+              <WalletIcon id="walletconnect" size={28} />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-text-primary">WalletConnect</div>
+                <div className="text-xs text-text-tertiary">QR code or deep link</div>
+              </div>
+              {connecting === "walletconnect" && (
+                <Loader2 className="h-4 w-4 animate-spin text-text-tertiary" />
+              )}
+            </button>
+          )}
 
           {error && (
             <p className="mt-1 text-xs text-semantic-error px-1">{error}</p>
@@ -292,10 +302,6 @@ export const WalletModal: React.FC = () => {
               <span className="flex-1 text-sm font-medium text-text-primary">{w.name}</span>
               {connecting === w.id ? (
                 <Loader2 className="h-4 w-4 animate-spin text-text-tertiary" />
-              ) : detected[w.id] ? (
-                <span className="rounded-full bg-semantic-successBg px-2 py-0.5 text-xs text-semantic-success">
-                  Detected
-                </span>
               ) : null}
             </button>
           ))}
