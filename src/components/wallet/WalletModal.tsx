@@ -266,7 +266,7 @@ export const WalletModal: React.FC = () => {
               <WalletIcon id="walletconnect" size={28} />
               <div className="flex-1">
                 <div className="text-sm font-medium text-text-primary">WalletConnect</div>
-                <div className="text-xs text-text-tertiary">QR code or deep link</div>
+                <div className="text-xs text-text-tertiary">Approve in app, return here when done</div>
               </div>
               {connecting === "walletconnect" && (
                 <Loader2 className="h-4 w-4 animate-spin text-text-tertiary" />

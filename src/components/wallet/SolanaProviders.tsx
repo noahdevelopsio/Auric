@@ -18,9 +18,21 @@ export default function SolanaProviders({ children }: PropsWithChildren) {
     // WalletConnect enables QR-code / deep-link connection from mobile browsers.
     // Requires a free project ID from https://cloud.walletconnect.com
     const wcProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://auric-pi.vercel.app";
     const wcNetwork = network === WalletAdapterNetwork.Testnet ? WalletAdapterNetwork.Devnet : network as WalletAdapterNetwork.Mainnet | WalletAdapterNetwork.Devnet;
     if (wcProjectId) {
-      base.push(new WalletConnectWalletAdapter({ network: wcNetwork, options: { projectId: wcProjectId } }));
+      base.push(new WalletConnectWalletAdapter({
+        network: wcNetwork,
+        options: {
+          projectId: wcProjectId,
+          metadata: {
+            name: "Auric",
+            description: "Bitcoin Ordinals & Solana NFT Marketplace",
+            url: appUrl,
+            icons: [`${appUrl}/favicon.ico`],
+          },
+        },
+      }));
     }
     return base;
   }, [network]);
